@@ -15,7 +15,7 @@ var wait = require('timers/promises').setTimeout;
 var CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 var PAGE_URL = 'file:///' + swapText(t.ROOT, '\\', '/') + 'index.html';
 var SHOTS = process.env.SHOTS || '';
-var ADMIN_EMAIL = 'kurlchester31feliciano@gmail.com';
+var ADMIN_EMAIL = 'kurlchester31feliciano@gmail.com';   // replaced by the owner account's email once the page loads
 
 /*                                         Time O(1) · Space O(1) */
 async function shot(page, name) {
@@ -49,6 +49,12 @@ async function fillDetails(page, email, phone) {
     await typeInto(page, '[data-form="name"]', 'Lara Mendoza');
     await typeInto(page, '[data-form="email"]', email);
     await typeInto(page, '[data-form="phone"]', phone);
+}
+
+/* Tick one of the two agreements at checkout.  Time O(1) · Space O(1) */
+async function agree(page, field) {
+    await page.$eval('[data-form="' + field + '"]', function (box) { if (!box.checked) box.click(); });
+    await settle(150);
 }
 
 /* Sign in to the order desk, through both steps.  Time O(1) · Space O(1) */
@@ -91,9 +97,11 @@ async function journey(page) {
 
     await page.goto(PAGE_URL, { waitUntil: 'networkidle0' });
     // Never send through the shop's real EmailJS account from an automated run.
-    await page.evaluate(function (owner) {
-        EMAIL_CONFIG.serviceId = ''; EMAIL_CONFIG.templateId = ''; EMAIL_CONFIG.publicKey = ''; EMAIL_CONFIG.adminEmail = owner;
-    }, ADMIN_EMAIL);
+    await page.evaluate(function () {
+        EMAIL_CONFIG.serviceId = ''; EMAIL_CONFIG.templateId = ''; EMAIL_CONFIG.publicKey = '';
+    });
+    // The owner's account was built from js/email-config.js when the page started.
+    ADMIN_EMAIL = await page.evaluate(function () { return accountById(1).email; });
     await shot(page, '01-home');
 
     /* ------------------------------------------------------------------ */
@@ -117,6 +125,33 @@ async function journey(page) {
     check('the button says Cart, not Request', home.cart && !home.request);
     check('flowers "Starts at", the picture bouquet ₱650, gifts Customized Pricing', home.startsAt && home.picture && home.customized && !home.from);
     check('"Sold", not "Given so far"', !home.given);
+    var bannerUp = function () { return page.$eval('#privacyBanner', function (b) { return !b.classList.contains('hidden'); }); };
+    check('a privacy banner cites the Data Privacy Act', await bannerUp() &&
+          textHas(await textOf(page, '#privacyBanner'), 'Data Privacy Act of 2012'));
+    await page.click('#privacyBanner [data-privacy-open="notice"]');
+    await settle();
+    var noticeText = await textOf(page, '#privacyBody');
+    check('the Privacy Notice opens, with your rights and who to contact', textHas(noticeText, 'Your rights') &&
+          textHas(noticeText, 'National Privacy Commission') && textHas(noticeText, 'How to reach us'));
+    await page.click('[data-privacy-doc="terms"]');
+    await settle(150);
+    check('the order terms are one tap away', textHas(await textOf(page, '#privacyBody'), 'non-refundable'));
+    await shot(page, '00-privacy');
+    await page.keyboard.press('Escape');
+    await settle();
+    await page.click('#privacyDismiss');
+    await settle(150);
+    check('"Got it" puts the banner away', !(await bannerUp()));
+    var samples = await page.$$eval('#catalogGrid .badge-sample', function (els) { return els.length; });
+    check('every product has a photo; the two from the web say "Sample photo"', samples === 2 &&
+          (await page.$$('#catalogGrid .card-media-empty')).length === 0, samples);
+    await page.click('#catalogGrid [data-open-product="302"]');
+    await settle();
+    var beerCaption = await textOf(page, '.ref-caption');
+    check('a sample photo is credited, with its licence', textHas(beerCaption, 'Sample photo') && textHas(beerCaption, 'CC BY-SA 4.0') &&
+          textHas(await textOf(page, '#productBody'), 'not the shop\'s own work'));
+    await page.keyboard.press('Escape');
+    await settle();
 
     /* ------------------------------------------------------------------ */
     section('flower customisation');
@@ -151,6 +186,14 @@ async function journey(page) {
           textHas(await textOf(page, '#slotWrap'), 'pickup place'));
     await page.click('#basketFoot [data-step="review"]');
     await settle(300);
+    check('without agreeing, checkout stops at the agreement', textHas(await textOf(page, '#basketBody'), 'tick the box') &&
+          (await page.$$('#basketBody .consent-check.is-invalid')).length === 2);
+    await agree(page, 'consent');
+    check('ticking a box clears its error at once', (await page.$$('#basketBody .consent-check.is-invalid')).length === 1);
+    await agree(page, 'terms');
+    check('the pickup date is called an estimate', textHas(await textOf(page, '#basketBody .schedule-note'), 'Pickup dates are estimates'));
+    await page.click('#basketFoot [data-step="review"]');
+    await settle(300);
     check('review shows the total and the two GCash options', textHas(await textOf(page, '#basketBody'), 'Total') &&
           (await page.$$('[data-pay-method]')).length === 2);
     await page.click('[data-pay-method="gcash-100"]');
@@ -161,6 +204,7 @@ async function journey(page) {
     await settle();
     var done = await textOf(page, '#doneBody');
     check('order confirmed at once, with the tracking number', (await textOf(page, '#doneTitle')) === 'Order confirmed' && textHas(done, 'SU-223'));
+    check('the confirmation says the date is an estimate', textHas(done, 'Pickup dates are estimates'));
     var confirmMail = await page.evaluate(function () { var m = outbox[outbox.length - 1]; return { to: m.to, subject: m.subject, body: m.body }; });
     check('a confirmation email with the tracking number is written', confirmMail.to === 'lara.flowers@gmail.com' &&
           confirmMail.subject === 'Order confirmed: SU-223' && textHas(confirmMail.body, 'Tracking number: SU-223'));
@@ -194,8 +238,11 @@ async function journey(page) {
     await page.keyboard.press('Tab');
     await settle(800);
     check('Manila needs a courier', (await page.$$('[data-courier]')).length === 2);
+    check('delivery dates and times can move with the weather', textHas(await textOf(page, '#basketBody .schedule-note'), 'weather'));
     await page.click('[data-courier="flash"]');
     await page.click('[data-slot]:not([disabled])');
+    await agree(page, 'consent');
+    await agree(page, 'terms');
     await page.click('#basketFoot [data-step="review"]');
     await settle(300);
     check('no payment is taken for a quote request', (await page.$$('[data-pay-method]')).length === 0);
@@ -362,6 +409,155 @@ async function journey(page) {
     await page.evaluate(function () { location.hash = '#admin'; });
     await settle(300);
     check('signing out needs the full sign-in again', await shown(page, '#loginForm') && !(await shown(page, '#adminConsole')));
+
+    section('desk accounts: a staff member signs in');
+    await page.evaluate(function () { location.hash = '#admin'; });
+    await settle(300);
+    await typeInto(page, '#loginEmail', 'bea.cruz@example.com');
+    await typeInto(page, '#passcodeInput', 'Staff2026');
+    await page.click('#loginSubmit');
+    await settle(300);
+    check('a staff account\'s password leads to its own code step', await shown(page, '#otpForm') &&
+          (await page.$('#otpDemo .otp-demo-code')) !== null);
+    var staffCode = await page.$eval('#otpDemo .otp-demo-code', function (el) { return el.textContent; });
+    await typeInto(page, '#otpInput', staffCode);
+    await page.click('#otpSubmit');
+    await settle(300);
+    check('the header names who is signed in', textHas(await textOf(page, '#deskUser'), 'Bea Cruz · Staff'));
+    var staffTabs = await textOf(page, '#adminTabs');
+    check('staff see "My account" but not the logs', textHas(staffTabs, 'My account') && !textHas(staffTabs, 'Logs'));
+    await page.click('[data-tab="account"]');
+    await settle(200);
+    check('staff can change their own password but not see other accounts', (await page.$('[data-account-form="password"]')) !== null &&
+          (await page.$('[data-account-form="add"]')) === null);
+    await page.click('[data-tab="outbox"]');
+    await settle(200);
+    var staffOutbox = await textOf(page, '#adminMain');
+    check('staff never see the desk accounts\' emails in the Outbox', !textHas(staffOutbox, 'sign-in code') &&
+          !textHas(staffOutbox, 'password reset code') && textHas(staffOutbox, 'ready for pickup'));
+    await page.click('#logoutButton');
+    await settle(300);
+    await signIn(page);
+    await page.click('[data-tab="account"]');
+    await settle(200);
+    check('an owner sees every account', textHas(await textOf(page, '#adminMain'), 'bea.cruz@example.com') &&
+          (await page.$('[data-account-form="add"]')) !== null);
+    await typeInto(page, '#newName', 'Lia Reyes');
+    await typeInto(page, '#newEmail', 'lia.reyes@gmail.com');
+    await typeInto(page, '#newPassword', 'Temp2026x');
+    await typeInto(page, '#newConfirm', 'Temp2026x');
+    await shot(page, '13-accounts');
+    await page.click('[data-account-form="add"] button[type="submit"]');
+    await settle(300);
+    check('an owner adds an account to the array', textHas(await textOf(page, '#adminMain'), 'lia.reyes@gmail.com') &&
+          await page.evaluate(function () { return staffAccounts.length === 3 && accountByEmail('lia.reyes@gmail.com').role === 'staff'; }));
+    await page.click('#logoutButton');
+    await settle(300);
+    await page.evaluate(function () { location.hash = '#admin'; });
+    await settle(300);
+
+    /* ------------------------------------------------------------------ */
+    section('password reset');
+    await page.click('#forgotButton');
+    await settle(200);
+    check('"Forgot password?" asks for the email', await shown(page, '#resetForm'));
+    await typeInto(page, '#resetEmail', ADMIN_EMAIL);
+    await page.click('#resetSubmit');
+    await settle(300);
+    check('the next step asks for the code and a new password, without confirming the email',
+          await shown(page, '#resetCodeForm') && textHas(await textOf(page, '#resetNote'), 'If '));
+    var resetCode = await page.$eval('#resetDemo .otp-demo-code', function (el) { return el.textContent; });
+    await typeInto(page, '#resetCode', resetCode);
+    await typeInto(page, '#resetPassword', 'short');
+    await typeInto(page, '#resetConfirm', 'short');
+    await page.click('#resetCodeSubmit');
+    await settle(200);
+    check('a weak password is refused', textHas(await textOf(page, '#resetCodeError'), '8 to 64'));
+    await typeInto(page, '#resetPassword', 'Ribbon2026');
+    await typeInto(page, '#resetConfirm', 'Ribbon2026');
+    await shot(page, '10-reset');
+    await page.click('#resetCodeSubmit');
+    await settle(300);
+    check('the password changes, and the sign-in form says so', await shown(page, '#loginForm') &&
+          textHas(await textOf(page, '#loginNotice'), 'password was changed'));
+    await typeInto(page, '#loginEmail', ADMIN_EMAIL);
+    await typeInto(page, '#passcodeInput', 'admin123');
+    await page.click('#loginSubmit');
+    await settle(200);
+    check('the old password no longer works', textHas(await textOf(page, '#loginError'), 'email or password'));
+    await typeInto(page, '#passcodeInput', 'Ribbon2026');
+    await page.click('#loginSubmit');
+    await settle(300);
+    var newCode = await page.$eval('#otpDemo .otp-demo-code', function (el) { return el.textContent; });
+    await typeInto(page, '#otpInput', newCode);
+    await page.click('#otpSubmit');
+    await settle(300);
+    check('the new password signs in (still with the emailed code)', await shown(page, '#adminConsole'));
+
+    section('security and audit logs');
+    await page.click('[data-tab="logs"]');
+    await settle(200);
+    var logsText = await textOf(page, '#adminMain');
+    check('the Logs tab shows security and audit entries', textHas(logsText, 'Password reset code sent') &&
+          textHas(logsText, 'changed with a reset code') && textHas(logsText, 'Wrong email or password') && textHas(logsText, 'Quotation sent'));
+    await shot(page, '11-logs');
+    await page.type('#logsSearch', 'SU-224');
+    await settle(200);
+    var su224 = await page.$$eval('#adminMain .log-row', function (rows) {
+        var all = rows.length > 0;
+        for (var i = 0; i < rows.length; i++) if (!textHas(rows[i].textContent, 'SU-224')) all = false;
+        return all;
+    });
+    check('searching narrows the log to one order', su224);
+    await typeInto(page, '#logsSearch', ' ');
+    await page.click('[data-log-kind="security"]');
+    await settle(200);
+    var kinds = await page.$$eval('#adminMain .log-kind', function (cells) {
+        var only = cells.length > 0;
+        for (var i = 0; i < cells.length; i++) if (cells[i].textContent !== 'Security') only = false;
+        return only;
+    });
+    check('the Security filter shows only security entries', kinds);
+    check('the shown entries download as CSV', beginsWith(await page.$eval('#adminMain a[download]', function (a) { return a.getAttribute('href'); }),
+          'data:text/csv'));
+
+    section('courier tracking');
+    var shippedPhone = await page.evaluate(function () { return orderById(205).customer.phone; });
+    await page.click('#findInput');
+    await page.type('#findInput', 'SU-205');
+    await page.keyboard.press('Enter');
+    await settle();
+    await page.click('#deskFoot [data-act="tracking"]');
+    await settle(300);
+    await page.select('[data-track-field="courier"]', 'flash');
+    await typeInto(page, '[data-track-field="number"]', 'P0123 N5WX P8EA');
+    await typeInto(page, '[data-track-field="link"]', 'javascript:alert(1)');
+    await page.click('#deskFoot [data-desk="save-tracking"]');
+    await settle(200);
+    check('an unsafe link is refused', textHas(await textOf(page, '#deskBody'), 'must start with https://'));
+    await typeInto(page, '[data-track-field="link"]', ' ');
+    await shot(page, '12-tracking');
+    await page.click('#deskFoot [data-desk="save-tracking"]');
+    await settle();
+    check('the tracking shows on the order', textHas(await textOf(page, '#deskBody'), 'Flash Express · P0123N5WXP8EA') &&
+          textHas(await textOf(page, '#deskBody'), 'Courier tracking added'));
+    await page.keyboard.press('Escape');
+    await settle();
+    await page.click('#logoutButton');
+    await settle(300);
+    await page.click('#trackButton');
+    await settle();
+    await page.type('#trackRef', 'SU-205');
+    await page.type('#trackPhone', shippedPhone);
+    await page.click('#trackBody button[type="submit"]');
+    await settle(200);
+    var trackText = await textOf(page, '#trackBody');
+    check('the customer can follow the parcel', textHas(trackText, 'Follow your parcel') && textHas(trackText, 'P0123N5WXP8EA') &&
+          (await page.$eval('#trackBody .tracking-card a', function (a) { return a.getAttribute('href') + '|' + a.getAttribute('rel'); })) ===
+          'https://www.flashexpress.ph|noopener noreferrer');
+    check('Track order says dates are estimates', textHas(trackText, 'weather'));
+    await page.keyboard.press('Escape');
+    await settle();
 
     /* ------------------------------------------------------------------ */
     section('phone layout');

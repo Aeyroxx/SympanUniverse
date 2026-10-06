@@ -143,6 +143,10 @@
 .notice svg { flex: 0 0 auto; margin-top: 0.1rem; }
 .notice ul { margin: 0; padding-left: 1rem; }
 .notice-warn { background: var(--amber-soft); color: var(--amber); }
+.notice-success { background: var(--green-soft); color: var(--green); }
+/* "Dates are estimates": the weather and the road can move them. */
+.schedule-note { display: flex; gap: var(--s-2); align-items: flex-start; }
+.schedule-note svg { flex: 0 0 auto; margin-top: 0.15rem; }
 
 .cart-line.is-gone { opacity: 0.55; }
 .done-wrap { max-width: 34rem; margin: var(--s-6) auto; }
@@ -153,6 +157,15 @@
 .track-head p { margin: 0; }
 .track-block { padding: var(--s-5) 0; border-top: 1px solid var(--line); }
 .track-block:last-child { padding-bottom: var(--s-6); }
+
+/* Courier tracking: the customer's card on Track order (the desk shows a line). */
+.tracking-card {
+    display: grid; gap: var(--s-1);
+    padding: var(--s-3) var(--s-4);
+    border: 1px solid var(--line); border-radius: var(--r-md);
+    background: var(--surface);
+}
+.tracking-number { font-family: var(--font-mono); font-size: 1.05rem; letter-spacing: 0.04em; word-break: break-all; }
 
 .timeline {
     list-style: none; margin: 0 0 var(--s-5); padding: 0;
@@ -277,3 +290,53 @@
 @media (max-width: 30rem) {
     .sheet-foot .ui-btn-lg { padding-inline: 1.1em; font-size: var(--t-callout-size); }
 }
+
+/* A photo from the web standing in for the shop's own: say so on the card. */
+.badge-sample { background: rgba(255, 255, 255, 0.92); color: var(--ink-2); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
+
+/* ---- Privacy banner ------------------------------------------------------------
+   A floating material bar: translucent over the page, materialising (blur and
+   scale together) rather than just fading. The tokens turn it solid under
+   reduced transparency and give it a firm edge under increased contrast. */
+.privacy-banner {
+    position: fixed; z-index: 85;
+    left: var(--s-3); right: var(--s-3);
+    bottom: calc(var(--s-3) + env(safe-area-inset-bottom, 0px));
+    max-width: 58rem; margin-inline: auto;
+    display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4);
+    padding: var(--s-3) var(--s-4);
+    border-radius: var(--r-lg);
+    background: var(--mat-thick);
+    -webkit-backdrop-filter: var(--mat-blur);
+    backdrop-filter: var(--mat-blur);
+    border: 1px solid var(--mat-edge);
+    box-shadow: var(--shadow-3);
+    animation: privacy-in var(--dur-slow) var(--ease-out) both;
+}
+.privacy-banner.hidden { display: none; }
+.privacy-banner-icon { flex: 0 0 auto; display: grid; place-items: center; color: var(--ink-2); }
+.privacy-banner-text { flex: 1 1 18rem; margin: 0; color: var(--ink); letter-spacing: 0.005em; }
+.privacy-banner-actions { display: flex; gap: var(--s-2); flex: 0 0 auto; margin-left: auto; }
+@keyframes privacy-in {
+    from { opacity: 0; transform: translateY(0.75rem) scale(0.98); filter: blur(6px); }
+    to   { opacity: 1; transform: none; filter: none; }
+}
+/* The cart button rides above the banner instead of under it. */
+body.has-privacy-banner .cart-fab { bottom: calc(var(--s-5) + var(--privacy-lift, 0px) + env(safe-area-inset-bottom, 0px)); }
+@media (prefers-reduced-motion: reduce) {
+    .privacy-banner { animation: privacy-fade var(--dur-fast) linear both; }
+}
+@keyframes privacy-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-contrast: more) { .privacy-banner { border-color: var(--ink); } }
+
+/* ---- Agreement at checkout, and the notice itself ------------------------------ */
+.consent-block { display: grid; gap: var(--s-2); }
+.consent-check { align-items: flex-start; padding: var(--s-3); border-radius: var(--r-md); background: var(--surface-2); cursor: default; }
+.consent-check label { cursor: pointer; }
+.consent-check.is-invalid { box-shadow: inset 0 0 0 1.5px var(--rose); }
+.consent-check .check-note .link-button { font: inherit; }
+.consent-check .field-error { display: block; margin-top: var(--s-1); }
+.doc-section + .doc-section { margin-top: var(--s-5); }
+.doc-section h3 { margin-bottom: var(--s-2); }
+.doc-section p { margin-bottom: var(--s-2); color: var(--ink-2); }
+.doc-list { padding-left: 1.2rem; display: grid; gap: var(--s-3); color: var(--ink-2); }

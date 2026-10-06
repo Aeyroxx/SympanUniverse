@@ -445,7 +445,7 @@ function appendixHtml() {
         var m = MODULES[i], p = partOf(m);
         listAdd(rows, [String(m.no), escapeHtml(m.title), escapeHtml(p.member || 'Part ' + p.no), escapeHtml(m.summary[0]), cost(m.summary[1]), cost(m.summary[2])]);
     }
-    var a = '<section class="page appendix"><p class="kicker">Appendix A</p><h1>Complexity summary — all 12 modules</h1>' +
+    var a = '<section class="page appendix"><p class="kicker">Appendix A</p><h1>Complexity summary — all ' + MODULES.length + ' modules</h1>' +
         '<p class="note">The main operation of each module, written with only the four notations from class: O(1), O(log n), O(n) and O(n²). Details are on each module’s pages.</p>' +
         htmlTable(['#', 'Module', 'Part', 'Main structure / algorithm', 'Time', 'Space'], rows) +
         '<h3>How we count</h3><ul class="plain">' + renderEach(C.COUNTING, function (c) { return '<li>' + escapeHtml(c) + '</li>'; }) + '</ul>' +

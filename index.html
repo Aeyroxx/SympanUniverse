@@ -144,6 +144,8 @@
                     <li><a class="link" href="#catalog">Catalogue</a></li>
                     <li><a class="link" href="#how">How pricing works</a></li>
                     <li><button class="link link-button" type="button" id="footTrack">Track an order</button></li>
+                    <li><button class="link link-button" type="button" data-privacy-open="notice">Privacy Notice</button></li>
+                    <li><button class="link link-button" type="button" data-privacy-open="terms">Order terms</button></li>
                 </ul>
             </div>
             <div class="foot-col">
@@ -157,10 +159,22 @@
         </div>
         <div class="foot-bottom t-caption">
             <span>© <span id="year"></span> Sýmpan Universe. All rights reserved.</span>
-            <span>Orders live in this page's memory only — nothing is stored on your device.</span>
+            <span>Personal data is handled under the Data Privacy Act of 2012 (RA 10173). Orders live in this page's memory only — nothing is stored on your device.</span>
         </div>
     </div>
 </footer>
+
+<!-- Privacy, said once and plainly: a translucent bar the visitor can read
+     or dismiss. Nothing is stored, so it returns on each visit. -->
+<div class="privacy-banner hidden" id="privacyBanner" role="region" aria-label="Your privacy">
+    <span class="privacy-banner-icon" id="privacyBannerIcon" aria-hidden="true"></span>
+    <p class="privacy-banner-text t-foot">We protect your personal data under the <strong>Data Privacy Act of 2012</strong> (RA 10173).
+        This site uses no cookies or trackers, and nothing is saved on your device.</p>
+    <div class="privacy-banner-actions">
+        <button class="ui-btn ui-btn-quiet ui-btn-sm" type="button" data-privacy-open="notice">Privacy Notice</button>
+        <button class="ui-btn ui-btn-primary ui-btn-sm" type="button" id="privacyDismiss">Got it</button>
+    </div>
+</div>
 
 <button class="cart-fab hidden" id="basketFab" type="button">
     <span id="fabIcon"></span>
@@ -171,8 +185,9 @@
 </div>
 
 <!-- =====================================================================
-     THE ORDER DESK — reached only at index.html#admin: email, password,
-     then a six-digit code sent to the owner's email
+     THE ORDER DESK — reached only at index.html#admin: each account's email
+     and password, then a six-digit code sent to that account's email.
+     "Forgot password?" resets it with an emailed code.
      ===================================================================== -->
 <div id="adminView" class="hidden">
 
@@ -189,9 +204,11 @@
                 <span class="field-label">Password</span>
                 <input class="input" type="password" id="passcodeInput" autocomplete="current-password" required>
             </label>
+            <p class="notice notice-success hidden text-start" id="loginNotice" role="status"></p>
             <span class="field-error hidden text-start" id="loginError" role="alert"></span>
             <button class="ui-btn ui-btn-primary ui-btn-block mt-4" type="submit" id="loginSubmit">Continue</button>
-            <a class="ui-btn ui-btn-ghost ui-btn-block mt-2" href="#top">Back to the shop</a>
+            <button class="ui-btn ui-btn-ghost ui-btn-block mt-2" type="button" id="forgotButton">Forgot password?</button>
+            <a class="ui-btn ui-btn-ghost ui-btn-block" href="#top">Back to the shop</a>
         </form>
 
         <form class="login-card panel panel-lift hidden" id="otpForm" novalidate autocomplete="off">
@@ -208,6 +225,43 @@
             <button class="ui-btn ui-btn-ghost ui-btn-block mt-2" type="button" id="otpResend">Send a new code</button>
             <button class="ui-btn ui-btn-ghost ui-btn-block" type="button" id="otpBack">Use a different account</button>
         </form>
+
+        <form class="login-card panel panel-lift hidden" id="resetForm" novalidate autocomplete="off">
+            <div class="lock" id="resetIcon"></div>
+            <h1 class="t-title1 mb-2">Reset your password</h1>
+            <p class="t-callout dim mb-4">Enter the order desk's email. We'll send a six-digit code to it.</p>
+            <label class="field text-start">
+                <span class="field-label">Email</span>
+                <input class="input" type="email" id="resetEmail" autocomplete="username" required>
+            </label>
+            <span class="field-error hidden text-start" id="resetError" role="alert"></span>
+            <button class="ui-btn ui-btn-primary ui-btn-block mt-4" type="submit" id="resetSubmit">Send reset code</button>
+            <button class="ui-btn ui-btn-ghost ui-btn-block mt-2" type="button" id="resetBack">Back to sign-in</button>
+        </form>
+
+        <form class="login-card panel panel-lift hidden" id="resetCodeForm" novalidate autocomplete="off">
+            <div class="lock" id="resetCodeIcon"></div>
+            <h1 class="t-title1 mb-2">Choose a new password</h1>
+            <p class="t-callout dim mb-4" id="resetNote">We sent a six-digit code.</p>
+            <label class="field text-start">
+                <span class="field-label">Reset code</span>
+                <input class="input t-mono otp-input" id="resetCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
+            </label>
+            <p class="notice notice-warn hidden text-start" id="resetDemo"></p>
+            <label class="field text-start">
+                <span class="field-label">New password</span>
+                <input class="input" type="password" id="resetPassword" autocomplete="new-password" maxlength="64" required>
+            </label>
+            <label class="field text-start">
+                <span class="field-label">New password, again</span>
+                <input class="input" type="password" id="resetConfirm" autocomplete="new-password" maxlength="64" required>
+            </label>
+            <p class="t-foot dim text-start" id="passwordRules">8 to 64 characters, with at least one letter and one number, and no spaces.</p>
+            <span class="field-error hidden text-start" id="resetCodeError" role="alert"></span>
+            <button class="ui-btn ui-btn-primary ui-btn-block mt-4" type="submit" id="resetCodeSubmit">Change password</button>
+            <button class="ui-btn ui-btn-ghost ui-btn-block mt-2" type="button" id="resetResend">Send a new code</button>
+            <button class="ui-btn ui-btn-ghost ui-btn-block" type="button" id="resetCodeBack">Back to sign-in</button>
+        </form>
     </section>
 
     <section class="hidden" id="adminConsole">
@@ -222,6 +276,7 @@
                     <label class="sr-only" for="findInput">Find an order by reference</label>
                     <input class="input" id="findInput" placeholder="Find order, e.g. SU-215" autocomplete="off">
                 </form>
+                <span class="desk-user t-foot" id="deskUser" aria-live="polite"></span>
                 <button class="ui-btn ui-btn-ghost ui-btn-sm" type="button" id="logoutButton">Sign out</button>
             </div>
         </header>
@@ -267,6 +322,16 @@
     </header>
     <div class="sheet-body" id="trackBody"></div>
     <footer class="sheet-foot" id="trackFoot"></footer>
+</section>
+
+<section class="sheet sheet-bottom sheet-side" id="privacySheet" role="dialog" aria-modal="true"
+         aria-labelledby="privacyTitle" aria-hidden="true">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <header class="sheet-head">
+        <h2 class="t-title2 flex-fill" id="privacyTitle">Privacy Notice</h2>
+        <button class="ui-btn-icon" type="button" data-sheet-close aria-label="Close" data-icon="close"></button>
+    </header>
+    <div class="sheet-body" id="privacyBody"></div>
 </section>
 
 <section class="sheet sheet-full" id="doneSheet" role="dialog" aria-modal="true"
@@ -321,8 +386,12 @@
 <script src="js/data.js"></script>
 <script src="js/email-config.js"></script>
 <script src="js/store.js"></script>
+<script src="js/audit.js"></script>
+<script src="js/accounts.js"></script>
 <script src="js/orders.js"></script>
+<script src="js/production.js"></script>
 <script src="js/notify.js"></script>
+<script src="js/tracking.js"></script>
 <script src="js/editing.js"></script>
 <script src="js/reports.js"></script>
 <script src="js/seed.js"></script>
@@ -334,9 +403,13 @@
 <script src="js/shop-product.js"></script>
 <script src="js/shop-basket.js"></script>
 <script src="js/shop-track.js"></script>
+<script src="js/shop-privacy.js"></script>
 <script src="js/admin-signin.js"></script>
+<script src="js/admin-reset.js"></script>
 <script src="js/admin-desk.js"></script>
 <script src="js/admin-overview.js"></script>
+<script src="js/admin-logs.js"></script>
+<script src="js/admin-account.js"></script>
 <script src="js/admin-orders.js"></script>
 <script src="js/admin-products.js"></script>
 <script src="js/app.js"></script>

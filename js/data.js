@@ -232,7 +232,7 @@ var PRODUCT_SEED = [
         story: 'Usually built from sweets you provide. If the shop buys them, the quotation lists ' +
                'that cost separately from the materials and labour, so you can see exactly what ' +
                'goes where.',
-        gallery: []
+        gallery: ['sweets-1.jpg', 'sweets-2.jpg']
     },
     {
         id: 301, name: 'Diaper Cake', line: 'diaper-cake', kind: 'quote', quoteType: 'diaper',
@@ -251,7 +251,7 @@ var PRODUCT_SEED = [
         blurb: 'Cans stacked and wrapped into a tiered cake. A birthday standard.',
         story: 'Tell the shop the beer and how many cans. If you bring the beer, the quotation is ' +
                'materials and labour; if the shop buys it, the beer is listed as its own cost.',
-        gallery: []
+        gallery: ['beer-cake-1.jpg']
     }
 ];
 
@@ -325,10 +325,31 @@ var DELIVERY_AREAS = [
 
 var COURIERS = [
     { id: 'flash', name: 'Flash Express', blurb: 'Parcel courier, boxed and padded. 1–3 days.',
-      rates: [{ region: 'bulacan', fee: 95 }, { region: 'metro-manila', fee: 120 }] },
+      rates: [{ region: 'bulacan', fee: 95 }, { region: 'metro-manila', fee: 120 }],
+      site: 'https://www.flashexpress.ph', hosts: ['flashexpress.ph', 'flashexpress.com'] },
     { id: 'lalamove', name: 'Lalamove', blurb: 'Same-day motorcycle courier, booked on the day.',
-      rates: [{ region: 'bulacan', fee: 160 }, { region: 'metro-manila', fee: 220 }] }
+      rates: [{ region: 'bulacan', fee: 160 }, { region: 'metro-manila', fee: 220 }],
+      site: 'https://www.lalamove.com', hosts: ['lalamove.com'] }
 ];
+
+/* =========================================================================
+   COURIER TRACKING — the parcel number and / or link a courier gives the
+   shop, attached to an order once it is sent. A courier not listed above
+   can be named as "another courier".
+   ========================================================================= */
+var OTHER_COURIER = { id: 'other', name: 'Another courier', site: '' };
+var TRACKING_NUMBER_MIN = 4;
+var TRACKING_NUMBER_MAX = 40;
+var TRACKING_LINK_MAX = 300;
+
+/* =========================================================================
+   SCHEDULE NOTE — dates and times are the shop's best estimate.
+   ========================================================================= */
+var SCHEDULE_NOTE_DELIVERY = 'Delivery dates and times are estimates. Bad weather (heavy rain, typhoons, ' +
+    'flooding), traffic, road closures or courier delays can move them — we will message you if your ' +
+    'delivery changes.';
+var SCHEDULE_NOTE_PICKUP = 'Pickup dates are estimates too. Bad weather, a power interruption or a ' +
+    'very busy week can delay an order — we will message you if it is not ready on the date.';
 
 var FULFILMENT_MODES = [
     { id: 'pickup', name: 'Pickup', blurb: 'Collect at the shop in Lawa, Meycauayan.' },
@@ -372,10 +393,27 @@ var SHOP_INFO = {
     hours: 'Mon–Sat · 9am–6pm'
 };
 
-/* The order desk signs in with the owner's email (EMAIL_CONFIG.adminEmail,
-   in email-config.js) and a password. The password is never stored as text:
-   this is its FNV-1a hash. A second step emails a six-digit code. */
-var ADMIN_PASS_HASH = 1883603724;
+/* The order desk's accounts — the credentials, kept as an array (see
+   js/accounts.js). No password is written anywhere: each account has a
+   salt and the salted hash of its password. The owner's email is the one
+   in js/email-config.js; the demo staff account is on example.com, so its
+   sign-in code is shown on screen instead of emailed.
+     owner  the email in email-config.js   password: see README
+     staff  bea.cruz@example.com           password: see README */
+var STAFF_SEED = [
+    { id: 1, name: 'Shop owner', email: '', role: 'owner', salt: 'su-owner-2026', passHash: 217525834 },
+    { id: 2, name: 'Bea Cruz', email: 'bea.cruz@example.com', role: 'staff', salt: 'su-staff-2026', passHash: 2345561029 }
+];
+var PASSWORD_ROUNDS = 200;   // FNV-1a rounds per password hash
+/* Password reset: a six-digit code emailed to the account's own address,
+   then a new password. Only the code's hash is kept, as for the sign-in
+   code. */
+var RESET_LIFETIME_MS = 10 * 60 * 1000;
+var RESET_MAX_TRIES = 3;
+var RESET_RESEND_MS = 30000;
+var RESET_MAX_SENDS = 3;
+var PASSWORD_MIN = 8;
+var PASSWORD_MAX = 64;
 var ADMIN_MAX_ATTEMPTS = 5;
 var ADMIN_LOCK_MS = 30000;
 var OTP_LENGTH = 6;
@@ -383,3 +421,76 @@ var OTP_LIFETIME_MS = 5 * 60 * 1000;
 var OTP_MAX_TRIES = 3;
 var OTP_RESEND_MS = 30000;
 var OTP_MAX_SENDS = 3;
+/* However the sign-in or reset is started again, one email address gets at
+   most this many codes an hour (sign-in and reset codes together). */
+var CODE_SEND_MAX = 6;
+var CODE_SEND_WINDOW_MS = 60 * 60 * 1000;
+/* The desk signs itself out after this long without a tap or a key. */
+var DESK_IDLE_MS = 15 * 60 * 1000;
+
+/* =========================================================================
+   SAMPLE PHOTOS — openly licensed photographs from the web, shown for the
+   products the shop has not photographed yet. Each is labelled "Sample
+   photo" on the site with its credit; the shop's own work replaces it.
+   Credits are also in assets/products/CREDITS.md.
+   ========================================================================= */
+var PHOTO_CREDITS = [
+    { file: 'sweets-1.jpg', title: 'Chocolate Bouquet', author: 'இந்து தங்கராஜ்',
+      license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+      source: 'https://commons.wikimedia.org/wiki/File:Chocolate_Bouquet.jpg', changes: 'Resized.' },
+    { file: 'sweets-2.jpg', title: 'Candy bouquet from my family', author: 'TwisterMc',
+      license: 'CC BY-SA 2.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/2.0/',
+      source: 'https://www.flickr.com/photos/13112188@N00/9095526092', changes: '' },
+    { file: 'beer-cake-1.jpg', title: 'Max\'s Tower of Beer Cans', author: 'Smash the Iron Cage',
+      license: 'CC BY-SA 4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+      source: 'https://commons.wikimedia.org/wiki/File:Max%27s_Tower_of_Beer_Cans.jpg', changes: 'Cropped and resized.' }
+];
+
+/* =========================================================================
+   DATA PRIVACY NOTICE — under the Data Privacy Act of 2012 (Republic Act
+   No. 10173). Shown from the shop's banner, the footer and checkout, where
+   the customer must agree to it before ordering. The version is recorded
+   on every order with the moment it was accepted. This is a starting
+   text for the shop to review, not legal advice.
+   ========================================================================= */
+var PRIVACY_NOTICE_VERSION = '2026-10-06';
+var ORDER_TERMS_VERSION = '2026-10-06';
+var PRIVACY_NOTICE = [
+    { title: 'Who we are',
+      text: ['Sýmpan Universe is a handcrafted gift shop in Lawa, Meycauayan, Bulacan. We are the personal information controller for the details you give us when you order, and we follow the Data Privacy Act of 2012 (Republic Act No. 10173) and its rules.'] },
+    { title: 'What we collect',
+      text: ['To take an order: your name, mobile number, email address, and — if you give them — your Facebook or Instagram name, notes about the order, and any reference picture you attach.',
+             'For a delivery: the street, barangay and city. For a gift this is often the recipient’s address — please let them know you are sharing it with us; we use it only to deliver. For a payment: the GCash reference number of your payment, so we can match it to your order.',
+             'We do not ask for government IDs, birthdays or card details, and this website uses no cookies, trackers or advertising tools.'] },
+    { title: 'Why we use it',
+      text: ['Only to make, price, deliver and support your order: to prepare your quotation, confirm your payment and issue receipts, schedule pickup or delivery, send you emails about each step, and answer you if you message us.',
+             'We do not sell your details or use them for advertising.'] },
+    { title: 'Our basis for using it',
+      text: ['Your consent, which you give by ticking the box at checkout, and the order itself: we need these details to fulfil what you asked us to make.',
+             'You may withdraw your consent at any time by messaging us (see How to reach us). We then stop using your details for anything new. An order already in production still needs them to be finished and delivered, and the order terms on cancellations and payments still apply; receipts the law requires us to keep are kept.'] },
+    { title: 'Who else receives it',
+      text: ['For a courier delivery, the courier you choose (Flash Express or Lalamove) receives your name, mobile number and address.',
+             'Our order emails are sent through EmailJS, an email service whose servers are outside the Philippines, so your email address and our message to you are processed abroad.',
+             'When this page opens, your browser also loads its fonts from Google Fonts and its layout styles from jsDelivr. Like any website they see your IP address and browser, but none of your order details.',
+             'No one else receives your details, unless the law requires it.'] },
+    { title: 'How long we keep it, and how it is protected',
+      text: ['This website keeps orders only in the open browser page: nothing is saved on your device, and reloading the page erases it. The emails we send you stay in the shop’s mailbox and in EmailJS’s sending history.',
+             'The shop keeps your order details only as long as your order and its after-care need — at most one year after it is completed — then deletes them. Receipts and payment records are kept as long as tax rules require.',
+             'Only the shop’s own people can see orders. Each person at the order desk signs in with their own account, password and a code sent to their email. (This demonstration copy also has a sample staff account whose code is shown on screen, because its example address cannot receive email.)'] },
+    { title: 'Your rights',
+      text: ['Under the Data Privacy Act you have the right to be informed, to access your personal data, to object to its processing and withdraw your consent, to have it corrected, to have it erased or blocked, to receive it in a form you can take elsewhere, and to be paid for damages if it is misused.',
+             'You may also file a complaint with the National Privacy Commission (privacy.gov.ph).'] },
+    { title: 'How to reach us',
+      text: ['For any question or request about your data, email the shop at sympan.universe@gmail.com or message @sympan.universe. The shop owner acts as our data protection officer.'] }
+];
+
+/* The shop's own order rules (from its order sheet), agreed to at checkout
+   alongside — but separately from — the privacy consent. */
+var ORDER_TERMS = [
+    'Every item is handmade. Processing takes 2 to 3 days or longer, depending on the design; rush orders cost ₱50 more.',
+    'A 50% down payment or full payment by GCash confirms an order. Payments are non-refundable.',
+    'No cancellations once production starts. A request or an unpaid quotation can be cancelled from Track order.',
+    'The shop delivers itself on Fridays, Saturdays and Sundays: free within Brgy. Lawa, ₱20 to ₱50 for other nearby areas. Couriers deliver further out at their rates.',
+    'Pickup and delivery dates and times are estimates. Weather, traffic and courier delays can move them; the shop will message you if they change.',
+    'A small greeting card is free on request.'
+];

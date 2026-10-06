@@ -162,3 +162,22 @@ button.now-item:hover { color: var(--ink); text-decoration: underline; }
 }
 .otp-demo-code { display: block; margin-top: var(--s-1); font-size: 1.35rem; letter-spacing: 0.3em; }
 .period-table td:first-child { white-space: nowrap; }
+
+/* ---- Logs ------------------------------------------------------------------ */
+.logs-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); }
+.logs-bar .search { min-width: 14rem; }
+.log-table td { vertical-align: top; padding-block: var(--s-2); }
+.log-when { white-space: nowrap; }
+.log-kind { white-space: nowrap; color: var(--ink-2); }
+.log-who { max-width: 14rem; word-break: break-word; }
+.log-detail { word-break: break-word; }
+.log-row.is-alert td:first-child { box-shadow: inset 3px 0 0 var(--rose); }
+.log-row.is-warn td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
+
+/* ---- Accounts ---------------------------------------------------------------- */
+.desk-user { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 14rem; }
+@media (max-width: 40rem) { .desk-user { display: none; } }
+.account-panel { padding: var(--s-5); }
+.account-form .field { margin-top: 0; }
+.account-table tr.is-off td { color: var(--ink-3); }
+.account-table td { vertical-align: middle; }

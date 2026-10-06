@@ -71,6 +71,16 @@ function buildChosenItem() {
    RENDERING
    ========================================================================= */
 
+/* "Sample photo · Photo: Chocolate Bouquet by … · CC BY-SA 4.0", with
+   links to the original and the licence, as the licence asks.
+                                          Time O(n) · Space O(n) */
+function photoCreditHtml(credit) {
+    return '<span class="badge badge-sample">Sample photo</span> <span class="t-caption">Photo: <a class="link" href="' + escapeHtml(credit.source) +
+        '" target="_blank" rel="noopener noreferrer">' + escapeHtml(credit.title) + '</a> by ' + escapeHtml(credit.author) + ' · <a class="link" href="' +
+        escapeHtml(credit.licenseUrl) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(credit.license) + '</a>' +
+        (credit.changes ? ' · ' + escapeHtml(credit.changes) : '') + '</span>';
+}
+
 /* The photograph frame and its caption.  Time O(n) · Space O(n) */
 function productMediaHtml() {
     var s = productState, media = productMedia(s);
@@ -87,7 +97,9 @@ function productMediaHtml() {
         note = shown.kind === 'real' ? 'A bouquet the shop made in this colour and arrangement.'
              : 'Our own photo, recoloured to this ribbon colour. The real ribbon follows the colour chart.';
     } else {
-        caption = '<span class="badge">Shop photo</span>';
+        var credit = photoCredit(shown.src);
+        caption = credit ? photoCreditHtml(credit) : '<span class="badge">Shop photo</span>';
+        note = credit ? 'A similar gift from the web, shown to give the idea — not the shop\'s own work. Yours is made to order to your size and design.' : '';
     }
     var thumbs = media.length < 2 ? '' : '<div class="gallery-thumbs" role="group" aria-label="Photographs">' +
         renderEach(media, function (m, i) {

@@ -31,7 +31,8 @@ function receiptHtml(r) {
             '<div><span class="k">Paid on</span><span>' + escapeHtml(formatStamp(r.stamp)) + '</span></div>' +
             '<div><span class="k">Customer</span><span>' + escapeHtml(r.customer.name) + '<br>' +
                 escapeHtml(r.customer.phone) + (r.customer.handle ? ' · ' + escapeHtml(r.customer.handle) : '') + '</span></div>' +
-            '<div><span class="k">Fulfilment</span><span>' + escapeHtml(r.fulfilment) + '</span></div>' +
+            '<div><span class="k">Fulfilment</span><span>' + escapeHtml(r.fulfilment) +
+                '<span class="t-caption dim d-block">' + escapeHtml(scheduleNote(r.mode)) + '</span></span></div>' +
         '</div>' +
         '<div class="table-wrap"><table class="tbl receipt-items"><thead><tr><th>Item and customisation</th>' +
             '<th class="num">Qty</th><th class="num">Amount</th></tr></thead><tbody>' + lines + '</tbody></table></div>' +

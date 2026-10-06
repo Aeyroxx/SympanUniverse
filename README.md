@@ -23,21 +23,87 @@ orders. A reload starts afresh from six weeks of seeded history. That history
 is not typed in as finished records. It is played through the real lifecycle
 functions, so its receipts, queues and best sellers are genuine.
 
-**Signing in to the desk** takes two steps:
+**Desk accounts.** Everyone who works the desk has their own account. The
+credentials are kept in an array, `staffAccounts` in `js/accounts.js`:
 
-1. The owner's email (`adminEmail` in `js/email-config.js`) and the
-   password, which is `admin123`.
-2. A six-digit code emailed to that address. It lasts five minutes and
-   allows three tries. A new code can be requested after 30 seconds.
+| Account | Email | Password | Role |
+| --- | --- | --- | --- |
+| Shop owner | `adminEmail` in `js/email-config.js` | `admin123` | Owner: everything, including Accounts and Logs |
+| Bea Cruz (demo) | `bea.cruz@example.com` | `Staff2026` | Staff: orders, production and products |
 
-The page keeps only hashes of the password and the code, shows no hint, and
-locks for 30 seconds after five wrong passwords. To change the password, open
-the browser console on the page, run `fnv1a('your new password')`, and put the
-number into `ADMIN_PASS_HASH` in `js/data.js`.
+- The array is in id order. A new account takes the next id, so appending
+  keeps it sorted, and an account is found by id with binary search.
+- Beside it, a hash table maps each email to its account id, so signing in
+  finds the account in O(1) on average.
+- No password is stored, only a salted hash. FNV-1a runs over the account's
+  own salt and the password, 200 times over. The two demo passwords appear in
+  no file in `js/`; the seed holds only their hashes. (They are written in
+  this README, the tests and the reviewer, for the demo.)
+- An owner adds staff on the **Accounts** tab with a temporary password, and
+  can disable an account. Accounts are never deleted, so their history stays.
+  Nobody can disable their own account, and the last active owner stays.
+- Everyone can change their own password, which needs the current one first.
+  Five wrong current passwords in a row sign the person out and pause the
+  email, so nobody at a desk left open can guess it there.
+- Account names must be unique, because the logs name people. New accounts
+  can't use an `example.com` address, which can't receive the sign-in code.
+
+**Signing in** takes two steps:
+
+1. The account's email and password.
+2. A six-digit code emailed to that account's own address. It lasts five
+   minutes and allows three tries. A new code can be requested after 30
+   seconds, three per sign-in.
+
+The page keeps only hashes of the passwords and the code, and shows no hint.
+A wrong password, an unknown email and a disabled account all get the same
+message. Five wrong passwords in a row for one email pause that email for 30
+seconds; other people can still sign in. The header names who is signed in,
+and the audit log records everything they do under their name.
+
+- **Codes per hour.** Each address gets at most six codes an hour, sign-in
+  and reset codes together. A second hash table counts them, and starting a
+  sign-in or reset again doesn't reset the count. Without this, anyone could
+  flood the owner's inbox and use up the EmailJS monthly allowance by pressing
+  Back and starting over.
+- **Idle sign-out.** The desk signs itself out after 15 minutes without a tap
+  or a key, and signing out empties the sign-in form.
+- **What the log keeps.** If the email box holds something that isn't an
+  email address (a password typed in the wrong box, say), the log records only
+  "(not an email address)", never the text.
+
+The demo staff account's address is on `example.com`, which can't receive
+mail. Its sign-in code is shown on screen, clearly labelled, so the staff view
+can be tried. Its password can't be reset once email is connected: a reset
+code is never shown on screen then, so knowing an email is never enough to
+take an account.
+
+**Forgot password?** on the sign-in card resets it:
+
+1. Type the account's email. The screen, the waits, the expiry and the
+   hourly limit behave the same whatever is typed, so it never tells a
+   stranger which emails have accounts. A code is only made for the email of
+   an active account. While email isn't connected at all, that code is shown
+   on screen for the demo.
+2. A six-digit reset code is emailed. Only its hash is kept. It lasts ten
+   minutes, allows three tries, and a new one can be sent after 30 seconds,
+   three per reset.
+3. Enter the code and the new password twice. The password must be 8 to 64
+   characters, with at least one letter and one number, no spaces, and must
+   differ from the current one.
+
+A reset gives the account a new salt and hash, lifts any pause on its email,
+and emails the person that their password changed. Signing in still needs the
+emailed sign-in code. Like all data here, accounts and passwords live in the
+page's memory, so a reload brings back the demo accounts and passwords. To
+change a password for good, open the browser console on the page and run
+`passwordHash('your-salt', 'your new password')`. Then put the salt and the
+number into that account's row of `STAFF_SEED` in `js/data.js`.
 
 Be clear about what this is: it keeps customers off the desk, but it is
 **not** real security. The whole site runs in the browser, so anyone can read
-its code, and real access control needs a server.
+its code, and real access control needs a server with a proper password hash
+(bcrypt or Argon2).
 
 **Email** goes out through [EmailJS](https://www.emailjs.com) straight from
 the browser. Fill in the three IDs at the top of `js/email-config.js` to
@@ -52,7 +118,8 @@ emailed.
 the EmailJS IDs can send their own text through the template, from the shop's
 mailbox, to any address. A browser-only site cannot fully prevent that; a
 server can. To limit it:
-- set a low rate limit in EmailJS;
+- set a low rate limit in EmailJS, and turn on its CAPTCHA option for the
+  template (the page's own hourly limit resets when the page is reloaded);
 - connect a mailbox used only for these notices, not the owner's personal
   one;
 - once the site is on a web address, allow only that address.
@@ -60,9 +127,40 @@ server can. To limit it:
 Pages opened straight from a file can't be restricted by address. The details
 are in `js/email-config.js`.
 
+**Personal data.** The shop asks only for what an order needs: name, email,
+mobile, and an address for a delivery.
+
+- A **Data Privacy Notice** written for the Data Privacy Act of 2012 (RA 10173)
+  covers:
+  - who collects the data, and why;
+  - the legal basis for using it;
+  - who else receives it: couriers, and EmailJS, whose servers are outside
+    the Philippines. It also says that Google Fonts and jsDelivr see a
+    visitor's IP address when the page loads;
+  - gift deliveries, where the address is usually the recipient's;
+  - how long it is kept: at most one year after an order is completed, and
+    receipts as long as tax rules require (**the owner should confirm these
+    periods**), and how it is protected;
+  - the customer's rights, including withdrawing consent and complaining to
+    the National Privacy Commission;
+  - how to reach the shop.
+- The shop's **order terms** sit beside it. Both open in one sheet from a
+  translucent banner, the footer, checkout and Track order.
+- The banner appears once per visit. The site sets no cookies and saves
+  nothing on the device, so "Got it" lasts until the next visit.
+- At checkout the customer ticks **two separate boxes**: one for the Privacy
+  Notice and one for the order terms. Both start unticked, and the order
+  can't be placed without both.
+- Each order records the agreement in `order.consent`: which version of the
+  notice and of the terms, and when. The order's history records it too.
+- To change the notice, edit `PRIVACY_NOTICE` in `js/data.js` and raise
+  `PRIVACY_NOTICE_VERSION`; for the terms, `ORDER_TERMS` and
+  `ORDER_TERMS_VERSION`. The last section gives the shop's own email and
+  page as the contact.
+
 ---
 
-## The twelve modules
+## The thirteen modules
 
 | # | Module | What it does | Structure / algorithm | Cost |
 | --- | --- | --- | --- | --- |
@@ -72,12 +170,13 @@ are in `js/email-config.js`.
 | 4 | **Flower Customiser** | Arrangement, count, 20 colours, add-ons, the matching photograph | **Hash table** (reference photos), **recursion** (add-on total) | O(1) avg, O(n) |
 | 5 | **Gift Customiser** | Money, makeup, sweets, diaper and beer-cake quote requests; the picture bouquet | **Greedy** change-making (fewest bills) | O(n) |
 | 6 | **Cart** | Items, quantities, removal | **Singly linked list** | O(1) append, O(n) remove |
-| 7 | **Checkout & Delivery** | Contact and email, pickup (date) or delivery (address, courier, date, time), fee by address | **Hash table** (delivery areas) | O(1) avg |
+| 7 | **Checkout & Delivery** | Contact and email, pickup (date) or delivery (address, courier, date, time), fee by address, privacy and terms agreement | **Hash table** (delivery areas) | O(1) avg |
 | 8 | **Quotation Desk** | Quote requests in arrival order, pre-filled from past quotes | **Circular queue** (FIFO), **insertion sort** (latest quotes) | O(1), O(n²) |
 | 9 | **Payment, Receipts & Email** | GCash 50% or 100%, receipts, an email at every step | **Circular queue** (outgoing mail) | O(1) |
 | 10 | **Production & Tracking** | Rush lane by due date, standard lane by payment order; customer look-up | **Min-heap**, **circular queue**, **binary search** | O(log n), O(1), O(log n) |
 | 11 | **Order Records** | Completed by date, undo, voided orders kept | **Stack** (undo), insertion sort by date | O(1), O(n²) |
-| 12 | **Order Desk** | Two-step sign-in, Overview by day / month / year, order and product editing | Hash of the password, bucketing by date | O(n), O(n²) |
+| 12 | **Order Desk & Accounts** | Desk accounts (owner and staff), two-step sign-in, Overview by day / month / year, order and product editing | **Credentials array** + **hash table** (email → account), salted hash, bucketing by date | O(1) avg + O(log n), O(n), O(n²) |
+| 13 | **Security & Audit Logs** | Every sign-in attempt and who did what; per-email pause; password reset; CSV | **Append-only array**, **hash table** (wrong passwords per email) | O(1) append, O(n) newest first |
 
 ### Complexity of every operation
 
@@ -233,6 +332,29 @@ and layered bouquets always show different photographs.
 The customiser finds the photograph with one hash-table look-up, keyed
 `flower|arrangement|colour`.
 
+### Sample photos
+
+The Sweets & Snacks Bouquet and the Beer-in-Can Cake had no photograph of the
+shop's own. They now show **openly licensed photographs of similar gifts**
+found online, until the shop photographs its own. Each one:
+
+- has a "Sample photo" badge on its card;
+- is credited on the product sheet (title, author, licence, link to the
+  original), with a note that it is not the shop's own work.
+
+| File | Product | Credit |
+| --- | --- | --- |
+| `sweets-1.jpg` | Sweets & Snacks Bouquet | "Chocolate Bouquet", இந்து தங்கராஜ், Wikimedia Commons, CC BY-SA 4.0 |
+| `sweets-2.jpg` | Sweets & Snacks Bouquet | "Candy bouquet from my family", TwisterMc, Flickr, CC BY-SA 2.0 |
+| `beer-cake-1.jpg` | Beer-in-Can Cake | "Max's Tower of Beer Cans", Smash the Iron Cage, Wikimedia Commons, CC BY-SA 4.0 (cropped) |
+
+No openly licensed photograph of an actual beer-in-can gift cake could be
+found. The one used shows cans stacked in round tiers, which is how the cake
+is built. Replace it with a photo of the shop's own cake from the Products tab.
+The credits are kept in `PHOTO_CREDITS` (`js/data.js`) and in
+`assets/products/CREDITS.md`. The files' camera and location metadata was
+removed.
+
 ---
 
 ## Delivery and handling
@@ -255,6 +377,35 @@ Courier figures are the shop's planning rates, not live rates. No courier API
 is connected. The owner must confirm or enter the fee before a quotation can
 be sent, and once confirmed the "estimate" label is dropped.
 
+**Dates and times are estimates.** Bad weather (heavy rain, typhoons,
+flooding), traffic, road closures or courier delays can move a delivery; bad
+weather or a busy week can delay a pickup. This is said wherever a date or
+time is given:
+
+- at checkout, under the date and on the review step;
+- on the order confirmation and on Track order;
+- on the receipt;
+- in the request, confirmation, "on its way" and tracking emails.
+
+The wording is in `SCHEDULE_NOTE_DELIVERY` and `SCHEDULE_NOTE_PICKUP` in
+`js/data.js`.
+
+**Courier tracking.** Once a courier has the parcel, the desk attaches its
+tracking number, its tracking link, or both, with **Add tracking** on any paid
+delivery order. The courier can be Flash Express, Lalamove or another courier.
+
+- The number is letters, digits and hyphens; spaces are dropped.
+- A link must be a plain `https://` address on a named site. Anything else is
+  refused: `javascript:` and other schemes, spaces, quotes, or a `user@` part
+  that could disguise the real site.
+
+The customer sees a **Follow your parcel** card on Track order and gets an
+email. The link opens the courier's tracking page; with only a number, it
+opens the courier's official website (no tracking address is made up). The
+tracking also shows on the desk's order card and in the "on its way" email.
+It can be changed or removed, and every change is in the order's history and
+the audit log.
+
 ---
 
 ## The order desk
@@ -276,8 +427,30 @@ be sent, and once confirmed the "estimate" label is dropped.
 - **Voided:** kept on record with reason, who voided it and when ("System"
   for an expired quotation).
 - **Outbox:** every email written, newest first, with whether it was sent.
-  Failed ones can be sent again. Sign-in codes are listed, but their content
-  is hidden.
+  Failed ones can be sent again. Sign-in and reset codes are listed, but their
+  content is hidden, and they are never sent twice. Staff see only the
+  customers' emails, never those about desk accounts.
+- **Accounts** (owners) or **My account** (staff): change your own
+  password. Owners also see every account with its role, status and last
+  sign-in, and can add or disable accounts.
+- **Logs** (owners only): the security log and the audit log, newest first.
+  - **Security:** every sign-in attempt (right, wrong, locked out), every
+    sign-in and reset code (sent, accepted, wrong, expired), password
+    changes, accounts added, disabled or enabled, sign-outs, and failed
+    customer look-ups on Track order. Only the
+    tracking number typed is kept, never the contact.
+  - **Audit:** everything done to an order or a product and by whom
+    (Customer, the signed-in person's name, or System), with the order's
+    tracking number. This
+    covers requests, automatic pricing, quotations, payments, ready, undo,
+    edits, voids, tracking, product edits, enabling and disabling, and failed
+    emails.
+  - **Tools:** a 24-hour summary; filters for Everything / Security / Orders &
+    products; a search box; a table of wrong passwords by the email typed;
+    and a CSV download of what is shown. The CSV is safe to open in a
+    spreadsheet: a typed "email" cannot run as a formula.
+  - The logs live in memory like everything else, so a reload starts them
+    again. Download them first if you need them.
 - **Products:** edit name, descriptions, processing time, materials, images
   (add, remove, set cover, upload), and options and prices: arrangements,
   colours and the price list for flowers; sizes and an optional starting price
@@ -325,6 +498,22 @@ the number **Sold**.
 | No built-in helpers | None of `push pop shift unshift splice slice concat sort reverse indexOf lastIndexOf includes find findIndex filter map forEach reduce some every join`, nor `search split replace trim toLowerCase toUpperCase padStart substring`, nor regular expressions |
 | Time and space complexity | Stated on every function |
 
+The security and audit logs (`js/audit.js`) are one **append-only array**:
+entries are only ever added at the end, in the order things happen, so the
+log is already in time order.
+
+- **Newest first** is a read from the back: O(n), no sort.
+- **The 24-hour summary** walks back from the newest entry and stops at the
+  first one older than a day.
+- **Search** is a linear search with naive string matching, O(n²).
+- **Appending** is O(1) in the log's length; only the actor's text, at most
+  80 characters, is copied.
+- **Wrong passwords per email**, and **codes sent per address**, are counted
+  in hash tables: O(1) average per attempt. Their keys are whatever people
+  type, so a hash table doubles its buckets once it holds more than two keys
+  per bucket (O(1) amortised). The wrong-password rows are listed most first
+  with insertion sort.
+
 `tests/rubric.js` checks all of this in every script, tests included. It
 blanks out comments and strings first, so a comment that names a built-in is
 not counted as a call.
@@ -353,7 +542,7 @@ The replacements are written once, in `js/core.js`:
 index.html               the shop and the order desk, one page
 assets/
   logo.png
-  products/              36 photographs of the shop's work
+  products/              39 photographs: 36 of the shop's work, 3 credited samples
   colors/                146 colour previews (flower-arrangement-colour.jpg)
 css/
   tokens.css · base.css · components.css · pages.css   design system
@@ -361,14 +550,18 @@ css/
   desk.css               the order desk
 js/                      loaded in this order
   core.js                hand-written replacements for the banned built-ins
-  email-config.js        the three EmailJS IDs and the owner's email (edit this)
   structures.js          linked list, circular queue, min-heap, stack, tree, hash table
   algorithms.js          insertion sort, selection sort, binary and linear search, recursion, greedy
-  data.js                colours, categories, products, add-ons, delivery, payment
+  data.js                colours, categories, products, add-ons, delivery, payment, privacy notice
+  email-config.js        the three EmailJS IDs and the owner's email (edit this)
   store.js               the in-memory state, products, photos, basket, delivery, sales
-  orders.js              the order lifecycle: request, quotation, payment, production, voids
-  editing.js             order and product editing
+  audit.js               the security and audit log (append-only), wrong passwords and codes per email
+  accounts.js            desk accounts: the credentials array, email index, salted password hashes
+  orders.js              the order lifecycle, steps 1–3: request, quotation, payment and receipts
+  production.js          steps 4–5: production lanes, "Mark ready" and undo, voids; dashboard figures
   notify.js              the emails each order step writes, queued for sending
+  tracking.js            courier parcel numbers and links on courier deliveries
+  editing.js             order and product editing
   reports.js             the Overview's figures for a day, month or year
   seed.js                six weeks of history, played through the lifecycle
   mail.js                sends queued emails through EmailJS
@@ -379,15 +572,20 @@ js/                      loaded in this order
   shop-product.js        the customiser
   shop-basket.js         the cart and checkout
   shop-track.js          tracking, accepting quotations, paying
+  shop-privacy.js        the Data Privacy Notice, the order terms and the banner
   admin-signin.js        email and password, then the emailed code
+  admin-reset.js         "Forgot password?": an emailed reset code, then a new password
   admin-desk.js          tabs and order lists
   admin-overview.js      the Overview by day, month or year, and the Outbox
+  admin-logs.js          the Logs tab: 24-hour summary, filters, search, CSV
+  admin-account.js       Accounts / My account: change password, add and disable accounts
   admin-orders.js        order details, quotation, editing, payments, voids
   admin-products.js      product editing, disable and enable
   app.js                 start-up and routing
 tests/                   Node checks — see tests/README.md
 docs/reviewer/           the defense reviewer (PDF, and index.html)
-tools/reviewer/          builds the reviewer from the real code (see below)
+tools/reviewer/          builds the reviewer from the real code (see below);
+                         content.js plus modules-a.js and modules-b.js hold its text
 _backup-original/        earlier versions, kept for reference
 ```
 

@@ -138,10 +138,19 @@ for (var w = 0; w < words.length; w++) app.hashPut(table, words[w], w);
 var allFound = true;
 for (var w2 = 0; w2 < words.length; w2++) if (app.hashGet(table, words[w2]) !== w2) allFound = false;
 check('every key found despite collisions', allFound);
-check('collisions chain', app.hashStats(table).longestChain >= 3);
+check('more than two keys per bucket and the table grows', table.bucketCount === 7);
+var tiny = app.hashCreate(1);
+app.hashPut(tiny, 'a', 1); app.hashPut(tiny, 'b', 2);
+check('collisions chain', app.hashStats(tiny).longestChain === 2 && app.hashGet(tiny, 'b') === 2);
 app.hashPut(table, 'pasig', 99);
 check('put overwrites', app.hashGet(table, 'pasig') === 99 && table.size === 7);
 check('missing key', app.hashGet(table, 'cebu') === null && !app.hashHas(table, 'cebu'));
+var entries = app.hashEntries(table), entryKeys = [];
+for (var he = 0; he < entries.length; he++) app.listAdd(entryKeys, entries[he].key);
+check('hashEntries lists every key once', entries.length === table.size && app.isIn(entryKeys, 'pasig') &&
+      app.firstWhere(entries, function (e) { return e.key === 'pasig'; }).value === 99);
+check('isLetter', app.isLetter('a') && app.isLetter('Z') && !app.isLetter('5') && !app.isLetter('-') && !app.isLetter(' '));
+check('textCut never splits an emoji in two', app.textCut('ab😀', 3) === 'ab' && app.textCut('ab😀', 4) === 'ab😀');
 
 section('sorting');
 var people = [{ n: 'b', k: 2 }, { n: 'a', k: 1 }, { n: 'c', k: 2 }, { n: 'd', k: 1 }];

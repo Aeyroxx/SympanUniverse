@@ -18,8 +18,8 @@ var ROOT = __dirname + '/../../';
 var BASE = new Date(2026, 9, 5, 12, 0, 0, 0);
 var NOW = BASE.getTime();
 var HOUR = 3600000;
-var FILES = ['core', 'structures', 'algorithms', 'data', 'email-config', 'store', 'orders', 'notify', 'editing', 'reports',
-             'seed', 'mail', 'motion', 'ui', 'receipt', 'shop-catalog', 'admin-signin'];
+var FILES = ['core', 'structures', 'algorithms', 'data', 'email-config', 'store', 'audit', 'accounts', 'orders', 'production', 'notify', 'tracking', 'editing', 'reports',
+             'seed', 'mail', 'motion', 'ui', 'receipt', 'shop-catalog', 'admin-signin', 'admin-reset'];
 
 /* A fresh sandbox with the site loaded and the demo history replayed.
                                            Time O(n) · Space O(n) */
@@ -37,7 +37,8 @@ function freshShop() {
 /* A form for a checkout in the sandbox.   Time O(1) · Space O(1) */
 function form(app, changes) {
     return app.copyRecord({ name: 'Lara Mendoza', phone: '0917 555 7788', email: 'lara@gmail.com', handle: '', mode: 'pickup',
-        date: '2026-10-08', slot: '', address: '', barangay: '', city: '', courier: '', rush: false, notes: '' }, changes);
+        date: '2026-10-08', slot: '', address: '', barangay: '', city: '', courier: '', rush: false, notes: '',
+        consent: true, terms: true }, changes);
 }
 
 /* Put items in the sandbox's cart.        Time O(n) · Space O(n) */
@@ -394,25 +395,62 @@ function stack() {
 }
 
 /* =========================================================================
-   12. ORDER DESK
+   12. ORDER DESK & ACCOUNTS
    ========================================================================= */
+
+/* The credentials array as a table.       Time O(n) · Space O(n) */
+function accountRows(app) {
+    var rows = [];
+    for (var i = 0; i < app.staffAccounts.length; i++) {
+        var a = app.staffAccounts[i];
+        listAdd(rows, [String(a.id), a.name, a.email, a.role, a.active ? 'active' : 'disabled', a.salt, String(a.passHash)]);
+    }
+    return R.table(['id', 'Name', 'Email', 'Role', 'Status', 'Salt', 'passHash'], rows, 'compact');
+}
+
+/*                                         Time O(n²) · Space O(n) */
 function desk() {
     var app = freshShop(), out = '';
+    var owner = app.EMAIL_CONFIG.adminEmail, first = app.staffAccounts[0];
+    out += R.traceStep('staffAccounts — the credentials array, in id order', accountRows(app) +
+        R.para('staffEmailIndex (hash table email → id): "' + owner + '" → ' + app.hashGet(app.staffEmailIndex, app.accountEmailKey(owner)) +
+            ', "bea.cruz@example.com" → ' + app.hashGet(app.staffEmailIndex, 'bea.cruz@example.com') + '. No password is stored: passwordHash(' +
+            first.salt + ', "admin123") = ' + app.passwordHash(first.salt, 'admin123') + ' matches the owner’s passHash; the same password with ' +
+            'another salt gives ' + app.passwordHash('su-other-salt', 'admin123') + '.'));
     var rows = [];
-    var owner = app.EMAIL_CONFIG.adminEmail;
-    var attempts = [[owner, 'wrong'], ['someone@gmail.com', 'admin123'], [' ' + owner + ' ', 'admin123']];
+    var attempts = [[owner, 'wrong'], ['someone@gmail.com', 'guess1'], ['someone@gmail.com', 'guess2'], ['someone@gmail.com', 'guess3'],
+                    ['someone@gmail.com', 'guess4'], ['someone@gmail.com', 'guess5'], ['bea.cruz@example.com', 'Staff2026'], [' ' + owner + ' ', 'admin123']];
     for (var i = 0; i < attempts.length; i++) {
-        var msg = app.deskSignIn(attempts[i][0], attempts[i][1], NOW);
-        listAdd(rows, ['"' + attempts[i][0] + '" / "' + attempts[i][1] + '"', msg === '' ? 'accepted → code step' : msg]);
+        var found = app.accountByEmail(attempts[i][0]);
+        var msg = app.deskSignIn(attempts[i][0], attempts[i][1], NOW + i * 1000);
+        listAdd(rows, ['"' + attempts[i][0] + '" / "' + attempts[i][1] + '"', found ? found.name + ' (id ' + found.id + ')' : 'none',
+                       msg === '' ? 'accepted → code step' : msg]);
     }
-    out += R.traceStep('deskSignIn() — step 1', R.table(['Email / password', 'Result'], rows, 'compact') +
-        R.para('Password hash stored in data.js: ' + app.ADMIN_PASS_HASH + '; fnv1a("admin123") = ' + app.fnv1a('admin123') + '.'));
-    var code = app.issueOtp(NOW);
+    out += R.traceStep('deskSignIn() — step 1: accountByEmail(), then checkPassword()', R.table(['Email / password', 'Account found', 'Result'], rows, 'compact') +
+        R.para('Five wrong passwords in a row paused only someone@gmail.com; the owner could still sign in. Spaces around an email are ignored.'));
+    var code = app.issueOtp(NOW + 9000);
     var wrong = code === '000000' ? '111111' : '000000';
     out += R.traceStep('issueOtp() and verifyOtp() — step 2', R.table(['Action', 'Result'], [
         ['issueOtp()', 'code ' + code + ' — only its hash ' + app.deskState.otp.hash + ' is kept; expires in 5 minutes'],
-        ['verifyOtp("' + wrong + '")', app.verifyOtp(wrong, NOW + 1000)],
-        ['verifyOtp("' + code + '")', app.verifyOtp(code, NOW + 2000) === '' ? 'signed in (authed = ' + app.deskState.authed + ')' : 'refused']], 'compact'));
+        ['verifyOtp("' + wrong + '")', app.verifyOtp(wrong, NOW + 10000)],
+        ['verifyOtp("' + code + '")', app.verifyOtp(code, NOW + 11000) === '' ? 'signed in as ' + app.deskActor() + ' (deskUserId = ' + app.deskUserId + ')' : 'refused']], 'compact'));
+    var me = app.currentAccount(), bea = app.accountByEmail('bea.cruz@example.com');
+    var byStaff = app.addStaffAccount({ name: 'Paolo Santos', email: 'paolo@gmail.com', role: 'staff', password: 'Temp2026x', confirm: 'Temp2026x' }, bea, NOW);
+    var lia = app.addStaffAccount({ name: 'Lia Reyes', email: 'lia.reyes@gmail.com', role: 'staff', password: 'Temp2026x', confirm: 'Temp2026x' }, me, NOW + 12000);
+    var again = app.addStaffAccount({ name: 'Lia R', email: 'LIA.reyes@gmail.com', role: 'staff', password: 'Temp2026x', confirm: 'Temp2026x' }, me, NOW + 13000);
+    var steps = [];
+    var at = app.binarySearch(app.staffAccounts, 3, function (acc) { listAdd(steps, acc.id); return acc.id; });
+    out += R.traceStep('addStaffAccount() — appended with the next id, indexed by email', R.table(['Who adds', 'Result'], [
+        ['Bea Cruz (staff)', byStaff.ok ? 'added' : byStaff.error],
+        [me.name + ' (owner): Lia Reyes', lia.ok ? 'added with id ' + lia.account.id : lia.error],
+        [me.name + ' (owner): LIA.reyes@gmail.com again', again.ok ? 'added' : again.error]], 'compact') + accountRows(app) +
+        R.para('accountById(3): binarySearch looked at ids ' + glue(steps, ' → ') + ' ⇒ index ' + at + '.'));
+    var disabled = app.setAccountActive(3, false, me, NOW + 14000);
+    var self = app.setAccountActive(me.id, false, me, NOW + 14000);
+    out += R.traceStep('setAccountActive() — disable, never delete', R.table(['Action', 'Result'], [
+        ['Disable Lia Reyes', disabled.ok ? 'disabled' : disabled.error],
+        ['Lia signs in with the right password', app.deskSignIn('lia.reyes@gmail.com', 'Temp2026x', NOW + 15000) || 'accepted'],
+        ['The owner disables their own account', self.ok ? 'disabled' : self.error]], 'compact'));
     var bucketCalls = 0, realBucket = app.bucketOf;
     app.bucketOf = function (stamp, key, part) { bucketCalls++; return realBucket(stamp, key, part); };
     var month = app.periodReport('month', '2026-09'), t = month.totals;
@@ -433,7 +471,71 @@ function desk() {
     return out;
 }
 
+/* =========================================================================
+   13. SECURITY & AUDIT LOGS
+   ========================================================================= */
+
+/* The newest log entries as a table.      Time O(n) · Space O(n) */
+function logRows(app, entries, count) {
+    var rows = [];
+    for (var i = 0; i < entries.length && i < count; i++) {
+        var e = entries[i];
+        listAdd(rows, [String(e.id), e.kind, e.level, e.actor, e.action + (e.ref ? ' · ' + e.ref : '')]);
+    }
+    return R.table(['#', 'Kind', 'Level', 'Who', 'What'], rows, 'compact');
+}
+
+/*                                         Time O(n²) · Space O(n) */
+function logs() {
+    var app = freshShop(), out = '';
+    var owner = app.EMAIL_CONFIG.adminEmail, replayed = app.auditLog.length;
+    app.deskSignIn(owner, 'wrong', NOW);
+    app.deskSignIn('stranger@gmail.com', 'guess1', NOW + 1000);
+    app.deskSignIn('stranger@gmail.com', 'guess2', NOW + 2000);
+    app.deskSignIn(owner, 'admin123', NOW + 3000);
+    app.verifyOtp(app.issueOtp(NOW + 3000), NOW + 4000);
+    app.payBalance(217, '1234567890999', NOW + 5000, app.deskActor());
+    var total = app.auditLog.length;
+    out += R.traceStep('logEvent() — every event appended at the end', R.para('The demo history wrote ' + replayed + ' entries; three sign-in attempts, the code ' +
+        'and one payment recorded at the desk added ' + (total - replayed) + ' more, numbered ' + (replayed + 1) + ' to ' + total + '. The newest, read from the back:') +
+        logRows(app, app.logEntries('all', ''), 7));
+    var frows = [], failed = app.failedSignInRows();
+    for (var f = 0; f < failed.length; f++) listAdd(frows, [failed[f].email, String(failed[f].count), String(failed[f].streak),
+                                                             app.accountByEmail(failed[f].email) ? 'yes' : 'no']);
+    out += R.traceStep('noteFailedSignIn() — the failedSignIns hash table', R.table(['Email typed', 'Wrong in all', 'In a row now', 'Has an account'], frows, 'compact') +
+        R.para('The owner’s right password set its streak back to 0; the total stays for the Logs tab.'));
+    var security = app.logEntries('security', ''), su217 = app.logEntries('all', 'SU-217');
+    out += R.traceStep('logEntries() — backwards, keep one kind, then search', R.para('logEntries("security", "") keeps ' + security.length + ' of ' + total +
+        ' entries. logEntries("all", "SU-217") finds ' + su217.length + ', each with who acted:') + logRows(app, su217, 8));
+    var inDay = 0;
+    for (var d = app.auditLog.length - 1; d >= 0 && NOW + 6000 - app.auditLog[d].stamp <= app.DAY_MS; d--) inDay++;
+    var c = app.recentSecurityCounts(NOW + 6000);
+    out += R.traceStep('recentSecurityCounts() — the last 24 hours', R.table(['Figure', 'Value'], [['Security events', String(c.total)],
+        ['Wrong passwords', String(c.failedPasswords)], ['Pauses', String(c.locks)], ['Wrong or expired codes', String(c.failedCodes)],
+        ['Password changes', String(c.passwordChanges)], ['Failed order look-ups', String(c.failedLookups)]], 'compact') +
+        R.para('The walk started at the newest entry and stopped after ' + (inDay + 1) + ' of the ' + total + ' entries — the first one older than a day ends it.'));
+    var nobody = app.startPasswordReset('stranger@gmail.com', NOW + 7000);
+    var nobodyState = app.deskState.reset;
+    var resetCode = app.startPasswordReset(owner, NOW + 8000);
+    var wrongCode = resetCode === '000000' ? '111111' : '000000';
+    var rrows = [
+        ['startPasswordReset("stranger@gmail.com")', nobody === '' ? 'no code made (known = ' + nobodyState.known + '); the screen says the same as for a real account' : 'code made'],
+        ['startPasswordReset(owner)', 'code ' + resetCode + ' — only its hash ' + app.deskState.reset.hash + ' is kept; expires in 10 minutes'],
+        ['completePasswordReset("' + wrongCode + '", …)', app.completePasswordReset(wrongCode, 'Ribbon2026', 'Ribbon2026', NOW + 9000)],
+        ['completePasswordReset(code, "short")', app.completePasswordReset(resetCode, 'short', 'short', NOW + 10000)],
+        ['completePasswordReset(code, "Ribbon2026")', app.completePasswordReset(resetCode, 'Ribbon2026', 'Ribbon2026', NOW + 11000) === '' ? 'changed' : 'refused']
+    ];
+    var ownerAccount = app.accountByEmail(owner);
+    out += R.traceStep('A password reset', R.table(['Call', 'Result'], rrows, 'compact') +
+        R.para('Afterwards checkPassword(owner, "Ribbon2026") = ' + app.checkPassword(ownerAccount, 'Ribbon2026') + ' and checkPassword(owner, "admin123") = ' +
+            app.checkPassword(ownerAccount, 'admin123') + '; the owner’s salt is now ' + ownerAccount.salt + '. The last entry: "' +
+            app.auditLog[app.auditLog.length - 1].action + '" (' + app.auditLog[app.auditLog.length - 1].level + ').'));
+    out += R.traceStep('csvField() — a typed text never runs as a spreadsheet formula', R.table(['Text', 'In the CSV'], [
+        ['=HYPERLINK("http://x")', app.csvField('=HYPERLINK("http://x")')], ['Lara "LM" Mendoza', app.csvField('Lara "LM" Mendoza')]], 'compact'));
+    return out;
+}
+
 module.exports = {
     bestSellers: bestSellers, tree: tree, search: search, hash: hash, greedy: greedy, linkedList: linkedList,
-    areas: areas, queue: queue, payment: payment, heap: heap, stack: stack, desk: desk
+    areas: areas, queue: queue, payment: payment, heap: heap, stack: stack, desk: desk, logs: logs
 };

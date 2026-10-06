@@ -6,7 +6,10 @@
      · cancel a request, or decline a quotation (both void the order),
      · accept a quotation with a 50% down payment or full payment by GCash,
      · pay the remaining balance by GCash,
+     · follow the parcel with the courier's tracking number or link,
      · open and print every receipt.
+   A look-up that matches no order is written to the security log (only
+   the tracking number typed, never the contact).
    Depends on ui.js, orders.js and receipt.js.
    ========================================================================= */
 
@@ -112,6 +115,20 @@ function trackActionsHtml(order) {
     return '';
 }
 
+/* The courier's tracking, once the shop has added it.  Time O(n) · Space O(n) */
+function trackCourierHtml(order) {
+    var t = shownTracking(order);
+    if (!t) return '';
+    var courier = trackingCourier(t.courier), href = trackingHref(t);
+    return '<section class="track-block"><h3 class="t-title3 mb-2">Follow your parcel</h3><div class="tracking-card">' +
+        '<span class="t-foot dim">' + escapeHtml(courier ? courier.name : 'Courier') + '</span>' +
+        (t.number ? '<span class="tracking-number">' + escapeHtml(t.number) + '</span>' : '') +
+        (href ? '<a class="ui-btn ui-btn-primary ui-btn-sm mt-2" href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' +
+            icon('external', 16) + ' ' + (t.link ? 'Track your parcel' : 'Open ' + escapeHtml(courier ? courier.name : 'the courier') + '\'s website') + '</a>' : '') +
+        (!t.link && href ? '<span class="t-caption dim">Enter the number above on the courier\'s website or app.</span>' : '') +
+        '</div></section>';
+}
+
 /* =========================================================================
    RENDER
    ========================================================================= */
@@ -124,7 +141,9 @@ function trackFormHtml() {
         '<label class="field"><span class="field-label">Mobile number or email used on the order</span>' +
         '<input class="input" id="trackPhone" autocomplete="email" placeholder="0917 123 4567 or name@gmail.com" value="' +
         escapeHtml(trackState.phone) + '"></label>' +
-        '<button class="ui-btn ui-btn-primary ui-btn-block mt-3" type="submit">Find my order</button></form>';
+        '<button class="ui-btn ui-btn-primary ui-btn-block mt-3" type="submit">Find my order</button>' +
+        '<p class="t-caption dim mt-3">Your details are used only for your order — see the ' +
+        '<button class="link link-button" type="button" data-privacy-open="notice">Privacy Notice</button>.</p></form>';
 }
 
 /*                                        Time O(n) · Space O(n) */
@@ -141,7 +160,8 @@ function trackOrderHtml(order) {
              '<div><dt>Delivery</dt><dd>' + escapeHtml(order.delivery.label) + '</dd></div>' : '') +
             '<div><dt>Payment</dt><dd>' + escapeHtml(paymentStatus(order)) +
             (order.paymentMethod ? ' · ' + escapeHtml(paymentById(order.paymentMethod).short) : '') + '</dd></div>' +
-        '</dl></section>' +
+        '</dl>' + (order.status === 'voided' ? '' : scheduleNoteHtml(f.mode)) + '</section>' +
+        trackCourierHtml(order) +
         '<section class="track-block">' + trackTotalsHtml(order) + '</section>' +
         trackActionsHtml(order) +
         (order.receipts.length > 0 ? '<section class="track-block"><h3 class="t-title3 mb-2">Receipts</h3>' + receiptListHtml(order) + '</section>' : '');
@@ -194,6 +214,10 @@ function findTracked() {
     trackState.ref = $('#trackRef').value;
     trackState.phone = $('#trackPhone').value;
     var order = customerLookup(trackState.ref, trackState.phone);
+    if (!order) {
+        logSecurity(Date.now(), 'lookup-failed', 'warn', 'Customer', 'Track order: no order matched',
+                    'Tracking number typed: ' + textCut(strip(trackState.ref), 20));
+    }
     trackState.error = order ? '' : 'No order matches that tracking number and mobile number or email. Check both and try again.';
     trackState.orderId = order ? order.id : 0;
     renderTrack();

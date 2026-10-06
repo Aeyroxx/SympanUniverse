@@ -8,7 +8,9 @@
    Tabs: Overview (by day, month or year) · Quote requests (circular
    queue, FIFO) · Awaiting payment · In production (min-heap rush lane +
    circular queue) · Completed (by date, with stack-based undo) · Voided ·
-   Products · Outbox.
+   Products · Outbox · Logs (security and audit, admin-logs.js; owners
+   only) · Accounts (admin-account.js: your password; owners manage every
+   account).
    Depends on ui.js, orders.js, editing.js, receipt.js.
    ========================================================================= */
 
@@ -20,8 +22,23 @@ var DESK_TABS = [
     { id: 'completed',  label: 'Completed' },
     { id: 'voided',     label: 'Voided' },
     { id: 'products',   label: 'Products' },
-    { id: 'outbox',     label: 'Outbox' }
+    { id: 'outbox',     label: 'Outbox' },
+    { id: 'logs',       label: 'Logs' },
+    { id: 'account',    label: 'Accounts' }
 ];
+var OWNER_ONLY_TABS = ['logs'];
+
+/* The tabs the person signed in may open: owners all of them, staff all
+   but the logs, with "My account" in place of Accounts.  Time O(n) · Space O(n) */
+function deskTabs() {
+    var me = currentAccount(), owner = isOwner(me), out = [];
+    for (var i = 0; i < DESK_TABS.length; i++) {
+        var t = DESK_TABS[i];
+        if (!owner && isIn(OWNER_ONLY_TABS, t.id)) continue;
+        listAdd(out, t.id === 'account' && !owner ? { id: t.id, label: 'My account' } : t);
+    }
+    return out;
+}
 
 /* =========================================================================
    SHARED CARD PIECES
@@ -44,7 +61,7 @@ function deskItemsHtml(order, showPrices) {
     }) + '</ul>';
 }
 
-/* Contact, schedule and delivery.        Time O(1)  · Space O(1) */
+/* Contact, schedule, delivery and tracking.  Time O(n) · Space O(n) */
 function deskFactsHtml(order) {
     var f = order.fulfilment, c = order.customer;
     var feeNote = order.delivery.status === 'estimate' ? ' · courier estimate, confirm in the quotation'
@@ -59,8 +76,22 @@ function deskFactsHtml(order) {
         (f.mode === 'delivery' ? '<div><dt>Address</dt><dd>' + escapeHtml(f.address + ', ' + (f.barangay ? f.barangay + ', ' : '') + f.city) + '</dd></div>' : '') +
         '<div><dt>Fee</dt><dd>' + escapeHtml(order.delivery.label + feeNote) + '</dd></div>' +
         (order.notes ? '<div><dt>Notes</dt><dd>' + escapeHtml(order.notes) + '</dd></div>' : '') +
+        deskTrackingFact(order) +
+        (order.consent ? '<div><dt>Consent</dt><dd>Privacy Notice v' + escapeHtml(order.consent.privacyVersion) + ' and order terms' +
+            (order.consent.termsVersion ? ' v' + escapeHtml(order.consent.termsVersion) : '') + ' · ' +
+            escapeHtml(formatStamp(order.consent.at)) + '</dd></div>' : '') +
         '<div><dt>Placed</dt><dd>' + escapeHtml(formatStamp(order.createdAt)) + '</dd></div>' +
     '</dl>';
+}
+
+/* The courier's tracking on the order card, with its link.  Time O(n) · Space O(n) */
+function deskTrackingFact(order) {
+    var t = shownTracking(order);
+    if (!t) return '';
+    var href = trackingHref(t);
+    return '<div><dt>Tracking</dt><dd>' + escapeHtml(trackingSummary(t)) +
+        (href ? ' · <a class="link" href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' +
+                (t.link ? 'tracking link' : 'courier site') + '</a>' : '') + '</dd></div>';
 }
 
 /* Money line for a card.                 Time O(n) · Space O(n) */
@@ -87,6 +118,7 @@ function deskActionsHtml(order) {
     if (order.status === 'requested') out += actButton('quote', id, 'Prepare quotation', 'ui-btn-primary');
     if (order.status === 'quoted') out += actButton('quote', id, 'Revise quotation') + actButton('accept', id, 'Record GCash payment', 'ui-btn-primary');
     if (owesBalance(order)) out += actButton('balance', id, 'Record balance', 'ui-btn-primary');
+    if (canAttachTracking(order)) out += actButton('tracking', id, shownTracking(order) ? 'Edit tracking' : 'Add tracking');
     if (order.status !== 'voided') out += actButton('edit', id, 'Edit order');
     if (order.status !== 'voided' && order.status !== 'completed') out += actButton('void', id, 'Void', 'ui-btn-danger');
     return out;
@@ -194,14 +226,19 @@ function tabCount(id) {
     if (id === 'voided') return ordersWithStatus('voided').length;
     if (id === 'products') return countWhere(products, function (p) { return !p.active; });
     if (id === 'outbox') return countWhere(outbox, function (m) { return m.status === 'failed'; });
+    if (id === 'logs') return recentSecurityCounts(Date.now()).failedPasswords;
     return -1;
 }
 
 /*                                        Time O(n²) · Space O(n) */
 function renderDesk() {
-    $('#adminTabs').innerHTML = renderEach(DESK_TABS, function (t) {
+    var tabs = deskTabs(), me = currentAccount();
+    if (!firstWhere(tabs, function (t) { return t.id === deskState.tab; })) deskState.tab = 'overview';
+    $('#deskUser').textContent = me ? me.name + ' · ' + (isOwner(me) ? 'Owner' : 'Staff') : '';
+    $('#adminTabs').innerHTML = renderEach(tabs, function (t) {
         var count = tabCount(t.id);
         var note = t.id === 'products' ? (count > 0 ? count + ' off' : '') : t.id === 'outbox' ? (count > 0 ? count + ' failed' : '')
+                 : t.id === 'logs' ? (count > 0 ? count + ' wrong ' + plural(count, 'password') : '')
                  : (count >= 0 ? String(count) : '');
         return '<button class="chip" type="button" data-tab="' + t.id + '" aria-pressed="' + (deskState.tab === t.id ? 'true' : 'false') + '">' +
                escapeHtml(t.label) + (note ? ' <span class="chip-count">' + note + '</span>' : '') + '</button>';
@@ -214,6 +251,8 @@ function renderDesk() {
     else if (tab === 'voided') html = voidedHtml();
     else if (tab === 'products') html = productsDeskHtml();
     else if (tab === 'outbox') html = outboxHtml();
+    else if (tab === 'logs') html = logsHtml();
+    else if (tab === 'account') html = accountHtml();
     else html = overviewHtml();
     $('#adminMain').innerHTML = html;
 }
@@ -240,14 +279,42 @@ function showDesk() {
     window.scrollTo(0, 0);
 }
 
-/* Sign out and take the desk's figures off the page.  Time O(1) · Space O(1) */
+/* Sign out and take the desk's figures off the page.  Time O(n) · Space O(1) */
 function signOut() {
+    endDeskSession(Date.now(), ' signed out of the order desk');
+    location.hash = '#top';
+}
+
+/* Close the desk session: log it, forget who was signed in, and clear the
+   desk's figures and the sign-in form off the page.  Time O(n) · Space O(1) */
+function endDeskSession(now, why) {
+    var account = currentAccount();
+    if (deskState.authed && account) logSecurity(now, 'signed-out', 'info', account.name, account.name + why, '');
     deskState.authed = false;
+    deskUserId = 0;
+    deskState.pendingId = 0;
     deskState.stage = 'password';
     deskState.otp = null;
     $('#adminMain').innerHTML = '';
     $('#adminTabs').innerHTML = '';
-    location.hash = '#top';
+    // The next person starts with an empty sign-in form.
+    var fields = ['#loginEmail', '#passcodeInput', '#otpInput', '#resetEmail', '#resetCode', '#resetPassword', '#resetConfirm'];
+    for (var i = 0; i < fields.length; i++) if ($(fields[i])) $(fields[i]).value = '';
+}
+
+/* A tap or a key while signed in.        Time O(1)  · Space O(1) */
+function noteDeskActivity() {
+    if (deskState.authed) deskState.lastActive = Date.now();
+}
+
+/* After DESK_IDLE_MS without a tap or a key, sign out by itself, so a desk
+   left open is not left open for long. Checked every minute.
+                                          Time O(n) · Space O(1) */
+function checkDeskIdle(now) {
+    if (!deskState.authed || now - (deskState.lastActive || 0) < DESK_IDLE_MS) return;
+    endDeskSession(now, ' was signed out after ' + (DESK_IDLE_MS / 60000) + ' minutes without activity');
+    deskState.notice = 'You were signed out after ' + (DESK_IDLE_MS / 60000) + ' minutes without activity. Sign in again to continue.';
+    if (!$('#adminView').classList.contains('hidden')) showDesk();
 }
 
 /* Find an order by reference — binary search.  Time O(n²) · Space O(n) */
@@ -268,6 +335,7 @@ function onDeskAction(e, button) {
     else if (act === 'accept') openDeskPayment(id, 'accept');
     else if (act === 'balance') openDeskPayment(id, 'balance');
     else if (act === 'void') confirmDeskVoid(id);
+    else if (act === 'tracking') openTrackingEditor(id);
     else if (act === 'complete-next') {
         var done = completeNext(Date.now());
         if (!done.ok) toast({ title: done.error, kind: 'warn' });
@@ -285,6 +353,9 @@ function onDeskAction(e, button) {
 /*                                        Time O(1)  · Space O(1) */
 function initDesk() {
     initSignIn();
+    // Any tap or key counts as activity for the idle sign-out.
+    document.addEventListener('pointerdown', noteDeskActivity, true);
+    document.addEventListener('keydown', noteDeskActivity, true);
     $('#findIcon').innerHTML = icon('search');
     $('#logoutButton').addEventListener('click', signOut);
     $('#findForm').addEventListener('submit', onFind);
@@ -297,12 +368,20 @@ function initDesk() {
     main.addEventListener('click', function (e) {
         if (e.target.closest('[data-mail-retry]')) {
             var count = retryFailedMail();
+            logAudit(Date.now(), deskActor(), 'Queued ' + count + ' failed ' + plural(count, 'email') + ' again', '', '');
             toast({ title: count + ' ' + plural(count, 'email') + ' queued again', kind: 'info' });
             renderDesk();
             return;
         }
         if (deskState.tab === 'overview') onOverviewClick(e);
+        else if (deskState.tab === 'logs') onLogsClick(e);
+        else if (deskState.tab === 'account') onAccountClick(e);
     });
     main.addEventListener('change', function (e) { if (deskState.tab === 'overview') onOverviewInput(e); });
+    main.addEventListener('input', function (e) { if (deskState.tab === 'logs') onLogsInput(e); });
+    main.addEventListener('submit', function (e) {
+        if (deskState.tab === 'logs') { e.preventDefault(); onLogsInput(e); }
+        else if (deskState.tab === 'account') onAccountSubmit(e);
+    });
     initDeskSheet();
 }

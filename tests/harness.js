@@ -36,7 +36,7 @@ function loadApp(files) {
 
 /* Everything the data layer needs.        Time O(n) · Space O(n) */
 function loadStore() {
-    return loadApp(['core', 'structures', 'algorithms', 'data', 'email-config', 'store', 'orders', 'notify', 'editing', 'reports', 'seed']);
+    return loadApp(['core', 'structures', 'algorithms', 'data', 'email-config', 'store', 'audit', 'accounts', 'orders', 'production', 'notify', 'tracking', 'editing', 'reports', 'seed']);
 }
 
 /*                                         Time O(1) · Space O(1) */

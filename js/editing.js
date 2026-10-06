@@ -247,7 +247,8 @@ function editOrder(id, draft, stamp) {
     listAdd(order.revisions, { stamp: stamp, changes: changes });
     // A customer looking at an open quotation is sent the new one.
     if (order.status === 'quoted' && orderTotal(order) !== totalBefore) emailQuoteReady(order, stamp);
-    addHistory(order, stamp, 'Edited by the order desk (' + changes.length + ' ' + plural(changes.length, 'change') + ')');
+    addHistory(order, stamp, 'Edited by the order desk (' + changes.length + ' ' + plural(changes.length, 'change') + ')', deskActor(),
+               glue(changes, '; '));
     return { ok: true, order: order, changes: changes };
 }
 

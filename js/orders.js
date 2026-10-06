@@ -8,6 +8,8 @@
      voided     cancelled at any point before completion. Kept on record
                 as VOIDED – NON-REFUNDABLE; any payment is retained.
 
+   This file holds steps 1–3: the request, the quotation and payment.
+   Production, voiding and the dashboard figures are in production.js.
    Every function takes the moment it happens as `stamp` (milliseconds),
    so the demo history in seed.js runs through exactly this code.
    Depends on store.js.
@@ -27,9 +29,13 @@ function statusLabel(order) {
     return row ? row.label : order.status;
 }
 
-/*                                        Time O(1)  · Space O(1) */
-function addHistory(order, stamp, text) {
+/* A line in the order's own history — and the same event in the audit
+   log, with who did it: 'Customer', the person signed in to the order desk
+   (deskActor(), accounts.js) or 'System'.
+                                          Time O(n) for the text · Space O(1) */
+function addHistory(order, stamp, text, actor, detail, level) {
     listAdd(order.history, { stamp: stamp, text: text });
+    logAudit(stamp, actor || 'System', text, order.ref, detail, level);
 }
 
 /* =========================================================================
@@ -142,7 +148,9 @@ function paymentStatus(order) {
    ========================================================================= */
 
 /* form: { name, phone, handle, mode, date, slot, address, barangay, city,
-           courier, rush, notes }
+           courier, rush, notes, consent, terms } — consent: the customer
+           agreed to the Privacy Notice; terms: to the order terms. Both are
+           asked separately and both are required.
    Returns a list of { field, message }; empty means valid.
                                           Time O(n²) · Space O(n) */
 function validateRequest(form, items, fromIso, ignoreId) {
@@ -161,6 +169,8 @@ function validateRequest(form, items, fromIso, ignoreId) {
     if (!isValidEmail(form.email)) fail('email', 'Enter an email address like name@gmail.com — your confirmation goes there.');
     if (String(form.handle || '').length > 60) fail('handle', 'Keep the Facebook or Instagram name under 60 characters.');
     if (String(form.notes || '').length > MAX_NOTE) fail('notes', 'Notes are limited to ' + MAX_NOTE + ' characters.');
+    if (form.consent !== true) fail('consent', 'Please read the Privacy Notice and tick the box, so the shop may use your details for this order.');
+    if (form.terms !== true) fail('terms', 'Please read the order terms and tick the box to agree to them.');
 
     if (!modeById(form.mode)) fail('mode', 'Choose pickup or delivery.');
     var earliest = earliestDate(items, form.rush === true, fromIso);
@@ -254,16 +264,21 @@ function submitRequest(form, stamp) {
         paymentMethod: '', amountPaid: 0, receipts: [],
         lane: '', laneSeq: -1,
         completedAt: 0, voidedAt: 0, voidedBy: '', voidReason: '',
+        courierTracking: null,
+        // Proof of consent: which notice was agreed to, and when.
+        consent: { privacyVersion: PRIVACY_NOTICE_VERSION, termsVersion: ORDER_TERMS_VERSION, terms: true, at: stamp },
         history: [], revisions: []
     };
     listAdd(orders, order);
     llClear(basket);
+    addHistory(order, stamp, 'Agreed to the Privacy Notice (version ' + PRIVACY_NOTICE_VERSION + ') and the order terms (version ' +
+               ORDER_TERMS_VERSION + ')', 'Customer');
     if (needsQuote(items, delivery)) {
-        addHistory(order, stamp, 'Quote request submitted');
+        addHistory(order, stamp, 'Quote request submitted', 'Customer');
         cqEnqueue(quoteQueue, id);
         emailQuoteRequested(order, stamp);
     } else {
-        addHistory(order, stamp, 'Order placed');
+        addHistory(order, stamp, 'Order placed', 'Customer');
         autoPrice(order, stamp);
     }
     return { ok: true, order: order };
@@ -281,7 +296,7 @@ function autoPrice(order, stamp) {
     order.quoteNote = 'Priced automatically from the price list.';
     if (order.delivery.service !== 'pickup') order.delivery = settledDelivery(order, order.delivery, order.deliveryFee);
     order.status = 'quoted';
-    addHistory(order, stamp, 'Priced automatically: ' + peso(orderTotal(order)));
+    addHistory(order, stamp, 'Priced automatically: ' + peso(orderTotal(order)), 'System');
 }
 
 /* Checkout for a priced cart: the order is placed and paid in one step, so
@@ -479,7 +494,7 @@ function sendQuote(id, draft, stamp) {
     if (order.delivery.service !== 'pickup') order.delivery = settledDelivery(order, order.delivery, order.deliveryFee);
     if (!revising) leaveQueue(quoteQueue, order.id);
     order.status = 'quoted';
-    addHistory(order, stamp, (revising ? 'Quotation revised: ' : 'Quotation sent: ') + peso(orderTotal(order)));
+    addHistory(order, stamp, (revising ? 'Quotation revised: ' : 'Quotation sent: ') + peso(orderTotal(order)), deskActor());
     emailQuoteReady(order, stamp);
     return { ok: true, order: order };
 }
@@ -550,7 +565,7 @@ function issueReceipt(order, kind, amount, gcashRef, stamp) {
         kind: kind, method: methodName, gcashRef: digitsOnly(gcashRef),
         amount: roundMoney(amount),
         customer: copyRecord(order.customer),
-        fulfilment: fulfilmentSummary(order),
+        fulfilment: fulfilmentSummary(order), mode: order.fulfilment.mode,
         items: lines,
         subtotal: orderSubtotal(order), deliveryFee: order.deliveryFee,
         deliveryLabel: order.delivery.label, rushFee: order.rushFee,
@@ -593,8 +608,9 @@ function gcashProblem(gcashRef) {
     return used ? 'That GCash reference is already on receipt ' + used.no + '. Check the number.' : '';
 }
 
-/* The customer accepts the quotation and pays.  Time O(n) · Space O(n) */
-function acceptQuote(id, methodId, gcashRef, stamp) {
+/* The quotation is accepted and paid — by the customer on Track order, or
+   recorded by the order desk (actor: the person signed in).  Time O(n) · Space O(n) */
+function acceptQuote(id, methodId, gcashRef, stamp, actor) {
     var order = orderById(id);
     if (!order || order.status !== 'quoted') return { ok: false, error: 'This order has no quotation waiting for payment.' };
     if (stamp - order.quotedAt > QUOTE_EXPIRY_DAYS * 24 * 3600000) {
@@ -612,7 +628,8 @@ function acceptQuote(id, methodId, gcashRef, stamp) {
     order.amountPaid = method.share === 1 ? total : roundMoney(total * method.share);
     order.status = 'paid';
     enterProduction(order);
-    addHistory(order, stamp, 'Quotation accepted — ' + peso(order.amountPaid) + ' paid by GCash');
+    addHistory(order, stamp, 'Quotation accepted — ' + peso(order.amountPaid) + ' paid by GCash', actor || 'Customer',
+               'GCash reference ' + digitsOnly(gcashRef));
     var receipt = issueReceipt(order, method.share === 1 ? 'Full payment' : 'Down payment', order.amountPaid, gcashRef, stamp);
     emailOrderConfirmed(order, receipt, stamp);
     return { ok: true, order: order, receipt: receipt };
@@ -620,7 +637,7 @@ function acceptQuote(id, methodId, gcashRef, stamp) {
 
 /* Settle what is left after a down payment — or after the desk raised the
    total of an order already paid or completed.  Time O(n) · Space O(n) */
-function payBalance(id, gcashRef, stamp) {
+function payBalance(id, gcashRef, stamp, actor) {
     var order = orderById(id);
     if (!order || (order.status !== 'paid' && order.status !== 'completed')) {
         return { ok: false, error: 'Only orders in production can take a balance payment.' };
@@ -631,199 +648,8 @@ function payBalance(id, gcashRef, stamp) {
     if (problem) return { ok: false, error: problem };
 
     order.amountPaid = roundMoney(order.amountPaid + due);
-    addHistory(order, stamp, 'Balance of ' + peso(due) + ' paid by GCash');
+    addHistory(order, stamp, 'Balance of ' + peso(due) + ' paid by GCash', actor || 'Customer', 'GCash reference ' + digitsOnly(gcashRef));
     var receipt = issueReceipt(order, 'Balance payment', due, gcashRef, stamp);
     emailBalancePaid(order, receipt, stamp);
     return { ok: true, order: order, receipt: receipt };
-}
-
-/* =========================================================================
-   4. PRODUCTION — rush lane (min-heap by due date), standard lane (queue)
-   ========================================================================= */
-
-/* 2026-10-12 -> 20261012, so earlier dates are smaller keys.  Time O(1) · Space O(1) */
-function dueKey(order) {
-    return toNumber(digitsOnly(order.fulfilment.date));
-}
-
-/*                                        Time O(log n) · Space O(1) */
-function enterProduction(order) {
-    if (order.rush) {
-        order.lane = 'rush';
-        order.laneSeq = rushLane.nextSeq;
-        heapInsert(rushLane, order.id, dueKey(order), order.laneSeq);
-    } else {
-        order.lane = 'standard';
-        cqEnqueue(standardLane, order.id);
-    }
-}
-
-/*                                        Time O(n)  · Space O(n) */
-function leaveProduction(order) {
-    if (order.lane === 'rush') heapRemove(rushLane, order.id);
-    else if (order.lane === 'standard') leaveQueue(standardLane, order.id);
-}
-
-/* Rush first, then standard.             Time O(log n) · Space O(1) */
-function nextInProduction() {
-    var id = heapPeek(rushLane);
-    if (id === null) id = cqFront(standardLane);
-    return id === null ? null : orderById(id);
-}
-
-/* The whole line in the order it will be made.  Time O(n²) · Space O(n) */
-function productionLine() {
-    var out = [], rush = heapValues(rushLane), standard = cqValues(standardLane), i;
-    for (i = 0; i < rush.length; i++) listAdd(out, orderById(rush[i]));
-    for (i = 0; i < standard.length; i++) listAdd(out, orderById(standard[i]));
-    return out;
-}
-
-/* The first order in line that is fully paid, so may be released.
-   An order still owing a balance keeps its place but does not hold up
-   the orders behind it.                  Time O(n²) · Space O(n) */
-function nextReleasable() {
-    return firstWhere(productionLine(), function (o) { return orderBalance(o) <= 0; });
-}
-
-/* Release the next fully paid order. Records where it stood, so undo can
-   put it back exactly. Finding it walks the line, O(n²); taking it
-   from the front is O(1) for the queue, O(log n) for the heap.
-                                          Time O(n²) · Space O(n) */
-function completeNext(stamp) {
-    var line = productionLine();
-    if (line.length === 0) return { ok: false, error: 'Nothing is in production.' };
-    var order = nextReleasable();
-    if (!order) {
-        var owing = renderEach(line, function (o) { return o.ref; }, ', ');
-        return { ok: false, error: 'Every order in production still owes a balance (' + owing + '). Record a balance payment first.' };
-    }
-    var skipped = [];
-    for (var i = 0; i < line.length && line[i] !== order; i++) listAdd(skipped, line[i]);
-    var position = -1;
-    if (order.lane === 'rush') {
-        // Rush comes first, so a releasable rush order is the heap's minimum
-        // unless one ahead of it still owes.
-        if (heapPeek(rushLane) === order.id) heapExtractMin(rushLane);
-        else heapRemove(rushLane, order.id);
-    } else {
-        position = positionIn(cqValues(standardLane), order.id);
-        leaveQueue(standardLane, order.id);
-    }
-    order.status = 'completed';
-    order.completedAt = stamp;
-    stackPush(completedStack, { id: order.id, position: position });
-    addHistory(order, stamp, 'Ready and released');
-    emailOrderReady(order, stamp);
-    return { ok: true, order: order, skipped: skipped };
-}
-
-/* Put the last completion back exactly where it came from: the front of
-   its lane in O(1) / O(log n), or its old place in O(n) if it had been
-   released from behind an order still owing.  Time O(n) worst · Space O(n) */
-function undoCompletion(stamp) {
-    var entry = stackPop(completedStack);
-    if (entry === null) return { ok: false, error: 'There is nothing to undo.' };
-    var order = orderById(entry.id);
-    order.status = 'paid';
-    order.completedAt = 0;
-    if (order.lane === 'rush') {
-        // An order moved to the rush lane after completing has no arrival
-        // number yet; it takes the next one.
-        if (order.laneSeq < 0) order.laneSeq = rushLane.nextSeq;
-        heapInsert(rushLane, order.id, dueKey(order), order.laneSeq);
-    } else {
-        if (entry.position <= 0) cqRequeueFront(standardLane, order.id);
-        else cqInsertAt(standardLane, entry.position, order.id);
-    }
-    addHistory(order, stamp, 'Completion undone — back in production');
-    return { ok: true, order: order };
-}
-
-/* Completed orders grouped by the day they were completed, newest first.
-   Orders are kept oldest first and are mostly completed in that order, so
-   the list is read back to front before the insertion sort: it is then
-   nearly in order already, the sort's best case.
-                                          Time O(n) here (nearly in order), O(n²) worst · Space O(n) */
-function completedByDate() {
-    var sorted = insertionSort(backwards(ordersWithStatus('completed')), function (a, b) { return b.completedAt - a.completedAt || a.id - b.id; });
-    var groups = [];
-    for (var i = 0; i < sorted.length; i++) {
-        var day = isoFromStamp(sorted[i].completedAt);
-        var last = groups.length > 0 ? groups[groups.length - 1] : null;
-        if (!last || last.date !== day) {
-            last = { date: day, orders: [], total: 0 };
-            listAdd(groups, last);
-        }
-        listAdd(last.orders, sorted[i]);
-        last.total = roundMoney(last.total + orderTotal(sorted[i]));
-    }
-    return groups;
-}
-
-/* =========================================================================
-   5. VOIDING — cancellations are kept, marked, and never refunded
-   ========================================================================= */
-
-/*                                        Time O(n)  · Space O(n) */
-function voidOrder(id, reason, by, stamp) {
-    var order = orderById(id);
-    if (!order) return { ok: false, error: 'No such order.' };
-    if (order.status === 'completed') return { ok: false, error: order.ref + ' is completed and cannot be voided.' };
-    if (order.status === 'voided') return { ok: false, error: order.ref + ' is already voided.' };
-
-    if (order.status === 'requested') leaveQueue(quoteQueue, order.id);
-    if (order.status === 'paid') leaveProduction(order);
-    order.status = 'voided';
-    order.voidedAt = stamp;
-    order.voidedBy = by === 'admin' ? 'Order desk' : (by === 'system' ? 'System' : 'Customer');
-    order.voidReason = strip(reason) || (by === 'admin' ? 'Cancelled by the order desk' : 'Cancelled by the customer');
-    addHistory(order, stamp, 'VOIDED – NON-REFUNDABLE' +
-               (order.amountPaid > 0 ? ' (' + peso(order.amountPaid) + ' retained)' : ''));
-    emailOrderVoided(order, stamp);
-    return { ok: true, order: order };
-}
-
-/* Void every quotation left unpaid for QUOTE_EXPIRY_DAYS, so the owner
-   never has to chase one. Run on start-up and every minute after.
-                                          Time O(n²) · Space O(n) */
-function expireQuotes(now) {
-    var limit = QUOTE_EXPIRY_DAYS * 24 * 3600000, expired = [];
-    var stale = keepWhere(orders, function (o) { return o.status === 'quoted' && now - o.quotedAt > limit; });
-    for (var i = 0; i < stale.length; i++) {
-        voidOrder(stale[i].id, 'Quotation expired — not paid within ' + QUOTE_EXPIRY_DAYS + ' days', 'system', now);
-        listAdd(expired, stale[i]);
-    }
-    return expired;
-}
-
-/* Newest void first; read back to front, as for completed orders.
-                                          Time O(n) here (nearly in order), O(n²) worst · Space O(n) */
-function voidedOrders() {
-    return insertionSort(backwards(ordersWithStatus('voided')), function (a, b) { return b.voidedAt - a.voidedAt || a.id - b.id; });
-}
-
-/* =========================================================================
-   DASHBOARD FIGURES
-   ========================================================================= */
-
-/*                                        Time O(n²) · Space O(n) */
-function dashboardStats() {
-    var outstanding = 0, retained = 0;
-    for (var i = 0; i < orders.length; i++) {
-        var o = orders[i];
-        if (o.status === 'paid' || o.status === 'completed') outstanding += orderBalance(o);
-        if (o.status === 'voided') retained += o.amountPaid;
-    }
-    return {
-        awaitingQuote: quoteQueue.count,
-        awaitingPayment: ordersWithStatus('quoted').length,
-        inProduction: rushLane.size + standardLane.count,
-        rush: rushLane.size,
-        completed: ordersWithStatus('completed').length,
-        voided: ordersWithStatus('voided').length,
-        collected: roundMoney(sumRecursive(receipts, function (r) { return r.amount; })),
-        outstanding: roundMoney(outstanding),
-        retained: roundMoney(retained)
-    };
 }

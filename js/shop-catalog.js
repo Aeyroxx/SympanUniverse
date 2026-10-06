@@ -49,6 +49,7 @@ function productCard(row, bestIds) {
         '<div class="card-media">' + imageOrEmpty(productCover(p), p.name) +
             '<div class="card-badges">' +
                 (best ? '<span class="badge badge-ink">' + icon('star', 12) + ' Best seller</span>' : '') +
+                (photoCredit(productCover(p)) ? '<span class="badge badge-sample">Sample photo</span>' : '') +
             '</div>' +
         '</div>' +
         '<div class="card-body">' +

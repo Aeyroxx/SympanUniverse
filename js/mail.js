@@ -52,6 +52,11 @@ function drainMail() {
         record.status = 'failed';
         record.note = 'No connection to EmailJS.';
     }).then(function () {
+        if (record.status === 'failed') {
+            var order = record.orderId ? orderById(record.orderId) : null;
+            logAudit(Date.now(), 'System', 'Email could not be sent: ' + record.subject, order ? order.ref : '',
+                     record.note + ' (to ' + record.to + ')', 'warn');
+        }
         mailSending = false;
         if (typeof onMailChanged === 'function') onMailChanged();
         if (typeof onSignInMailChanged === 'function') onSignInMailChanged();
@@ -63,8 +68,8 @@ function drainMail() {
 function retryFailedMail() {
     var count = 0;
     for (var i = 0; i < outbox.length; i++) {
-        // Sign-in codes are never re-sent: an old code is useless and should not travel twice.
-        if (outbox[i].kind === 'otp') continue;
+        // Sign-in and reset codes are never re-sent: an old code is useless and should not travel twice.
+        if (outbox[i].kind === 'otp' || outbox[i].kind === 'reset') continue;
         if (outbox[i].status === 'failed' || (outbox[i].status === 'simulated' && mailConfigured())) {
             outbox[i].status = 'queued';
             outbox[i].note = '';

@@ -162,24 +162,40 @@ var MAIL_STATUS = [
     { id: 'simulated', label: 'Not sent — email not set up', tone: 'badge-amber' }
 ];
 
+/* A sign-in or password reset code: never shown, never sent again.
+                                          Time O(1)  · Space O(1) */
+function isCodeMail(m) {
+    return m.kind === 'otp' || m.kind === 'reset';
+}
+
+/* An email about a desk account: a code, or "your password changed".
+                                          Time O(1)  · Space O(1) */
+function isAccountMail(m) {
+    return isCodeMail(m) || m.kind === 'security';
+}
+
 /* Newest first: the outbox is read back to front, so the sort only has
    to fix the few emails written out of time order (the demo history).
+   Staff see the customers' emails only — never the desk accounts'.
                                           Time O(n) here (nearly in order), O(n²) worst · Space O(n) */
 function outboxHtml() {
-    var list = insertionSort(backwards(outbox), function (a, b) { return b.stamp - a.stamp || b.id - a.id; });
-    var failed = countWhere(outbox, function (m) { return m.kind !== 'otp' && (m.status === 'failed' || (m.status === 'simulated' && mailConfigured())); });
+    var owner = isOwner(currentAccount());
+    var shown = owner ? outbox : keepWhere(outbox, function (m) { return !isAccountMail(m); });
+    var list = insertionSort(backwards(shown), function (a, b) { return b.stamp - a.stamp || b.id - a.id; });
+    var failed = countWhere(shown, function (m) { return !isCodeMail(m) && (m.status === 'failed' || (m.status === 'simulated' && mailConfigured())); });
     var setup = mailConfigured() ? '' :
-        '<div class="notice notice-warn">' + icon('alert', 16) + '<div><strong>Email is not connected yet.</strong> Customer emails and sign-in codes are ' +
-        'written and kept here, but not sent. Fill in the three EmailJS values in <span class="t-mono">js/email-config.js</span> ' +
+        '<div class="notice notice-warn">' + icon('alert', 16) + '<div><strong>Email is not connected yet.</strong> Customer emails' +
+        (owner ? ' and sign-in codes are' : ' are') + ' written and kept here, but not sent. Fill in the three EmailJS values in <span class="t-mono">js/email-config.js</span> ' +
         '(the steps are at the top of that file) and they go out automatically.</div></div>';
     var head = '<div class="desk-bar">' + (failed > 0 ? '<button class="ui-btn ui-btn-primary" type="button" data-mail-retry>Send ' + failed +
-        ' again</button>' : '') + '<span class="t-foot dim">Every order step emails the customer automatically. Sign-in codes are listed too.</span></div>';
+        ' again</button>' : '') + '<span class="t-foot dim">Every order step emails the customer automatically.' +
+        (owner ? ' Sign-in and reset codes are listed too, with their content hidden.' : '') + '</span></div>';
     if (list.length === 0) return setup + head + emptyHtml('chat', 'No emails yet', 'Order confirmations, quotations and "ready" notices appear here as they are sent.');
     return setup + head + renderEach(list, function (m) {
         var status = firstWhere(MAIL_STATUS, function (s) { return s.id === m.status; });
         var order = m.orderId ? orderById(m.orderId) : null;
-        // Sign-in codes are listed, but their content stays hidden.
-        var body = m.kind === 'otp' ? 'Sign-in code — hidden.' : m.body;
+        // Sign-in and reset codes are listed, but their content stays hidden.
+        var body = m.kind === 'otp' ? 'Sign-in code — hidden.' : (m.kind === 'reset' ? 'Password reset code — hidden.' : m.body);
         return '<details class="order-fold"><summary><span class="badge ' + status.tone + '">' + escapeHtml(status.label) + '</span>' +
             '<span class="flex-fill"><strong>' + escapeHtml(m.subject) + '</strong><span class="t-caption dim d-block">To ' + escapeHtml(m.to) +
             (order ? ' · ' + escapeHtml(order.ref) : '') + '</span></span><span class="t-caption dim">' + escapeHtml(formatStamp(m.stamp)) + '</span></summary>' +

@@ -21,7 +21,7 @@ var requestErrors = [];
 var requestForm = {
     name: '', phone: '', email: '', handle: '', mode: 'pickup', date: '', slot: '',
     address: '', barangay: '', city: '', courier: 'flash', rush: false, notes: '',
-    method: 'gcash-50', gcashRef: ''
+    method: 'gcash-50', gcashRef: '', consent: false, terms: false
 };
 
 /* =========================================================================
@@ -230,13 +230,38 @@ function detailsStepHtml() {
         '<h3 class="t-title3 mt-5 mb-3">' + (delivery ? 'Delivery date and time' : 'Pickup date') + '</h3>' +
         formField('date', delivery ? 'Date' : 'Pickup date', 'type="date" min="' + earliest + '"', f.date) +
         '<p class="t-foot dim mt-1 mb-3">Ready from ' + escapeHtml(formatDateLong(earliest)) + '.</p>' +
-        '<div id="slotWrap">' + whenPickHtml() + '</div>' +
+        '<div id="slotWrap">' + whenPickHtml() + '</div>' + scheduleNoteHtml(f.mode) +
         '<label class="check mt-3"><input type="checkbox" data-form="rush"' + (f.rush ? ' checked' : '') + '><span class="box">' + icon('check') +
         '</span><span class="check-body"><span class="check-title">Rush order <span class="dim">+' + pesoWhole(RUSH_FEE) + '</span></span>' +
         '<span class="check-note">Ready the next day, made ahead of the regular queue.</span></span></label>' +
         '<label class="field mt-4"><span class="field-label">Anything else the shop should know (optional)</span>' +
         '<textarea class="textarea" data-form="notes" maxlength="' + MAX_NOTE + '">' + escapeHtml(f.notes) + '</textarea></label>' +
+        consentHtml() +
         (errorFor('basket') ? '<p class="field-error">' + escapeHtml(errorFor('basket')) + '</p>' : '');
+}
+
+/* The two agreements, asked separately, at the moment the details are
+   given: the Privacy Notice, and the shop's order terms. Each opens its
+   text in a sheet.                       Time O(n) · Space O(n) */
+function consentHtml() {
+    var f = requestForm;
+    // The links to the texts sit outside the labels, so a label holds only
+    // its own box (a button inside a label is not valid HTML).
+    /*                                     Time O(n) · Space O(n) */
+    function box(field, title, note) {
+        var error = errorFor(field), id = 'agree-' + field;
+        return '<div class="check consent-check' + (error ? ' is-invalid' : '') + '"><input type="checkbox" id="' + id + '" data-form="' + field + '"' +
+            (f[field] ? ' checked' : '') + '><label class="box" for="' + id + '">' + icon('check') + '</label><span class="check-body">' +
+            '<label class="check-title" for="' + id + '">' + escapeHtml(title) + '</label><span class="check-note">' + note + '</span>' +
+            (error ? '<span class="field-error">' + escapeHtml(error) + '</span>' : '') + '</span></div>';
+    }
+    return '<h3 class="t-title3 mt-5 mb-3">Your agreement</h3><div class="consent-block">' +
+        box('consent', 'I agree to the Privacy Notice', 'Sýmpan Universe may use the details I give — mine, and for a delivery the recipient’s ' +
+            'address — only to make, deliver and email me about this order, as the <button class="link link-button" type="button" data-privacy-open="notice">Privacy Notice</button> ' +
+            'explains under the Data Privacy Act of 2012.') +
+        box('terms', 'I agree to the order terms', 'Payments are non-refundable, there are no cancellations once production starts, and dates are ' +
+            'estimates. <button class="link link-button" type="button" data-privacy-open="terms">Read the order terms</button>') +
+        '</div>';
 }
 
 /* =========================================================================
@@ -288,7 +313,7 @@ function reviewStepHtml() {
             '<div><dt>' + (f.mode === 'delivery' ? 'When' : 'Pickup date') + '</dt><dd>' +
             escapeHtml(formatDateLong(f.date) + (f.mode === 'delivery' ? ', ' + f.slot : '')) + (f.rush ? ' · Rush' : '') + '</dd></div>' +
             (dq.courier ? '<div><dt>Courier</dt><dd>' + escapeHtml(courierById(dq.courier).name) + '</dd></div>' : '') +
-        '</dl>' +
+        '</dl>' + scheduleNoteHtml(f.mode) +
         '<div class="panel mt-4">' + summaryRows(rows) +
         (totals.needsQuote ? '<p class="t-foot dim mt-3">Nothing is charged yet. The owner prices your request and emails you the quotation; ' +
             'accept it with a 50% down payment or full payment by GCash.</p>' : '') + '</div>' +
@@ -387,7 +412,7 @@ function finishCheckout(order, receipt) {
     refreshShop();
     sheetClose(basketSheet);
     showOrderPlaced(order, receipt);
-    requestForm = copyRecord(requestForm, { notes: '', rush: false, date: '', slot: '', gcashRef: '' });
+    requestForm = copyRecord(requestForm, { notes: '', rush: false, date: '', slot: '', gcashRef: '', consent: false, terms: false });
 }
 
 /* The confirmation, with the tracking number to keep.  Time O(n) · Space O(n) */
@@ -408,7 +433,7 @@ function showOrderPlaced(order, receipt) {
         '<p class="t-over dim mt-4">Tracking number</p><p class="receipt-ref">' + escapeHtml(order.ref) + '</p>' +
         '<ol class="how-steps how-steps-compact mt-5 text-start">' + renderEach(steps, function (s, i) {
             return '<li class="how-step"><span class="how-num">' + (i + 1) + '</span><p class="t-callout">' + escapeHtml(s) + '</p></li>';
-        }) + '</ol></div>';
+        }) + '</ol><div class="text-start mt-4">' + scheduleNoteHtml(order.fulfilment.mode) + '</div></div>';
     $('#doneFoot').innerHTML = '<div class="row-center">' +
         (receipt ? '<button class="ui-btn ui-btn-quiet flex-fill" type="button" data-receipt="' + escapeHtml(receipt.no) + '">View receipt</button>'
                  : '<button class="ui-btn ui-btn-quiet flex-fill" type="button" data-sheet-done>Keep browsing</button>') +
@@ -424,6 +449,13 @@ function onRequestInput(e) {
     if (field === 'rush') {
         requestForm.rush = t.checked;
         renderBasket('[data-form="rush"]');
+        return;
+    }
+    if (field === 'consent' || field === 'terms') {
+        requestForm[field] = t.checked;
+        // Ticked: the error under it goes at once (inline, not on submit).
+        requestErrors = keepWhere(requestErrors, function (er) { return er.field !== field || !t.checked; });
+        renderBasket('[data-form="' + field + '"]');
         return;
     }
     if (field === 'gcash') { requestForm.gcashRef = t.value; return; }

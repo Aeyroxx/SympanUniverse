@@ -12,8 +12,8 @@
 
 var t = require('./harness');
 var check = t.check, section = t.section;
-var app = t.loadApp(['core', 'structures', 'algorithms', 'data', 'email-config', 'store', 'orders', 'notify', 'editing',
-                     'reports', 'seed', 'mail', 'motion', 'ui', 'receipt', 'admin-signin']);
+var app = t.loadApp(['core', 'structures', 'algorithms', 'data', 'email-config', 'store', 'audit', 'accounts', 'orders', 'production', 'notify', 'tracking', 'editing',
+                     'reports', 'seed', 'mail', 'motion', 'ui', 'receipt', 'admin-signin', 'admin-reset']);
 
 var BASE = new Date(2026, 9, 5, 12, 0, 0, 0);   // Monday 5 October 2026, noon
 var NOW = BASE.getTime();
@@ -42,7 +42,8 @@ function fillCart(lines) {
 /* A checkout form with sensible defaults.  Time O(1) · Space O(1) */
 function form(changes) {
     return app.copyRecord({ name: 'Test Customer', phone: '0917 555 9999', email: 'test.customer@gmail.com', handle: '',
-        mode: 'pickup', date: '2026-10-08', slot: '', address: '', barangay: '', city: '', courier: '', rush: false, notes: '' }, changes);
+        mode: 'pickup', date: '2026-10-08', slot: '', address: '', barangay: '', city: '', courier: '', rush: false, notes: '',
+        consent: true, terms: true }, changes);
 }
 
 /* Submit a cart: a price-list cart comes back priced, a quote cart requested.
@@ -89,6 +90,9 @@ check('demo customers live on example.com', app.countWhere(app.orders, function 
 check('replaying history sends no email', app.outbox.length === 0 && app.mailEnabled === false);
 check('undo starts empty: it covers this session, not the seeded weeks', app.stackSize(app.completedStack) === 0);
 check('cart starts empty', app.llIsEmpty(app.basket));
+var replayInOrder = true;
+for (var ri = 1; ri < app.auditLog.length; ri++) if (app.auditLog[ri].stamp < app.auditLog[ri - 1].stamp) replayInOrder = false;
+check('the replayed history is in the audit log, in time order', app.auditLog.length > 50 && replayInOrder);
 
 section('colour reference photographs');
 var missing = [], reals = 0;
@@ -373,10 +377,281 @@ app.verifyOtp(wrong, at); app.verifyOtp(wrong, at); app.verifyOtp(wrong, at);
 check('three wrong codes and a new one is needed', app.textHas(app.verifyOtp(wrong, at), 'Send a new one') && !app.deskState.authed);
 app.deskState.stage = 'password';
 app.deskSignIn('a@b.com', 'x', at); app.deskSignIn('a@b.com', 'x', at); app.deskSignIn('a@b.com', 'x', at); app.deskSignIn('a@b.com', 'x', at);
-check('five wrong passwords lock the desk', app.textHas(app.deskSignIn('a@b.com', 'x', at), 'locked') &&
-      app.textHas(app.deskSignIn('kurlchester31feliciano@gmail.com', 'admin123', at + 1000), 'Try again'));
+check('five wrong passwords in a row pause that email', app.textHas(app.deskSignIn('a@b.com', 'x', at), 'paused') &&
+      app.textHas(app.deskSignIn('a@b.com', 'x', at + 1000), 'Try again'));
+app.codeSends = app.hashCreate(17);   // the earlier steps used up the owner's codes for this hour
+check('…but not anyone else\'s', app.deskSignIn(app.EMAIL_CONFIG.adminEmail, 'admin123', at + 2000) === '');
+app.deskState.stage = 'password';
 check('no password is in the source as text', !app.textHas(t.readText('js/data.js') + t.readText('js/admin-signin.js') +
       t.readText('js/email-config.js'), 'admin123'));
+
+/* The newest security entry.              Time O(1) · Space O(1) */
+function lastSecurity() {
+    for (var i = app.auditLog.length - 1; i >= 0; i--) if (app.auditLog[i].kind === 'security') return app.auditLog[i];
+    return null;
+}
+
+/* How many entries have a code.           Time O(n) · Space O(1) */
+function codeCount(code) {
+    return app.countWhere(app.auditLog, function (e) { return e.code === code; });
+}
+
+section('security and audit logs');
+var OWNER = app.EMAIL_CONFIG.adminEmail, log = app.auditLog;
+check('the demo history is in the audit log, with who did each step', log.length > 50 &&
+      app.countWhere(log, function (e) { return e.kind === 'audit' && e.actor === 'Customer'; }) > 0 &&
+      app.countWhere(log, function (e) { return e.kind === 'audit' && e.actor === 'Order desk'; }) > 0 &&
+      app.countWhere(log, function (e) { return e.kind === 'audit' && e.actor === 'System'; }) > 0);
+var appendedInOrder = true;
+// (This test moves its clock back and forth, so only the numbering is checked;
+// the seeding section checks that the replayed history is in time order.)
+for (var li = 1; li < log.length; li++) if (log[li].id !== log[li - 1].id + 1) appendedInOrder = false;
+check('entries are only appended, numbered one after another', appendedInOrder);
+check('wrong passwords, the lock and a try while locked are security events',
+      codeCount('password-wrong') >= 4 && codeCount('locked') === 1 && codeCount('locked-try') >= 1);
+check('sign-in codes: accepted, wrong, expired and too many are all logged',
+      codeCount('code-ok') >= 1 && codeCount('code-wrong') >= 1 && codeCount('code-expired') >= 1 && codeCount('code-max') >= 1);
+var failRows = app.failedSignInRows();
+check('wrong passwords are counted per email in a hash table, most first', failRows[0].email === 'a@b.com' && failRows[0].count === 5 &&
+      app.hashGet(app.failedSignIns, 'a@b.com').count === 5, failRows.length > 0 ? failRows[0].email + ' ' + failRows[0].count : 'none');
+check('newest first: the latest security entry leads the security list', app.logEntries('security', '')[0].id === lastSecurity().id);
+var su201 = app.logEntries('all', 'SU-201');
+check('the search finds an order\'s entries', su201.length > 0 && app.countWhere(su201, function (e) { return e.ref === 'SU-201'; }) === su201.length);
+check('the Orders & products list holds only audit entries', app.countWhere(app.logEntries('audit', ''), function (e) { return e.kind !== 'audit'; }) === 0);
+var recent = app.recentSecurityCounts(NOW + 1000);
+check('the 24-hour summary counts what happened', recent.locks === 1 && recent.failedPasswords >= 4 && recent.failedCodes >= 3, JSON.stringify(recent));
+check('a day later, the summary is empty', app.recentSecurityCounts(NOW + 3 * 86400000).total === 0);
+fillCart([ROSE]);
+var logged = app.placeOrder(form({ email: 'log.test@gmail.com' }), 'gcash-50', freshRef(), NOW + HOUR);
+var placedEntries = app.logEntries('audit', logged.order.ref);
+check('a customer\'s checkout is logged as the customer', placedEntries.length >= 2 &&
+      app.countWhere(placedEntries, function (e) { return e.actor === 'Customer'; }) >= 2);
+app.payBalance(logged.order.id, freshRef(), NOW + 2 * HOUR, 'Owner');
+check('a payment recorded at the desk is logged as the owner', app.logEntries('audit', logged.order.ref)[0].actor === 'Owner');
+app.voidOrder(app.cqFront(app.quoteQueue), 'Test', 'admin', NOW + 2 * HOUR);
+check('a void is a warning, with its reason', app.logEntries('audit', 'VOIDED')[0].level === 'warn' && app.logEntries('audit', 'VOIDED')[0].detail === 'Test');
+check('CSV fields are quoted and cannot run as formulas', app.csvField('=HYPERLINK("x")') === '"\'=HYPERLINK(""x"")"' &&
+      app.csvField('plain') === '"plain"');
+check('the CSV has a header and one line per entry', app.cutText(app.logCsv(app.logEntries('security', '')), '\r\n').length ===
+      app.logEntries('security', '').length + 1);
+
+section('password reset');
+app.codeSends = app.hashCreate(17);   // each scenario starts with this hour's code allowance unused
+app.deskState.authed = false;
+check('an unknown email gets no code — and the same screen as the owner', app.startPasswordReset('stranger@gmail.com', NOW) === '' &&
+      app.deskState.stage === 'reset-code' && !app.deskState.reset.known && lastSecurity().code === 'reset-unknown');
+check('no code works for an unknown email', app.textHas(app.completePasswordReset('123456', 'Ribbon2026', 'Ribbon2026', NOW), 'not right'));
+var resetCode = app.startPasswordReset('  ' + OWNER + ' ', NOW);
+check('the owner\'s email gets a six-digit code, kept only as a hash', resetCode.length === 6 && app.deskState.reset.known &&
+      app.deskState.reset.hash === app.fnv1a(resetCode) && lastSecurity().code === 'reset-sent');
+var resetMail = app.emailResetCode(OWNER, resetCode, NOW);
+check('the reset code is emailed in the body, never the subject', resetMail && app.textHas(resetMail.body, resetCode) &&
+      !app.textHas(resetMail.subject, resetCode) && resetMail.kind === 'reset');
+check('no new reset code for 30 seconds', app.resetResendWait(NOW + 1000) > 0 && app.resetResendWait(NOW + 31000) === 0);
+check('the password rules, without using up a try',
+      app.textHas(app.completePasswordReset(resetCode, 'short1', 'short1', NOW), '8 to 64') &&
+      app.textHas(app.completePasswordReset(resetCode, 'onlyletters', 'onlyletters', NOW), 'letter and one number') &&
+      app.textHas(app.completePasswordReset(resetCode, 'has space 1', 'has space 1', NOW), 'spaces') &&
+      app.textHas(app.completePasswordReset(resetCode, 'Matching1', 'Matching2', NOW), 'do not match') &&
+      app.textHas(app.completePasswordReset(resetCode, 'admin123', 'admin123', NOW), 'different') &&
+      app.deskState.reset.tries === 0);
+var wrongReset = resetCode === '000000' ? '111111' : '000000';
+check('a wrong code uses a try', app.textHas(app.completePasswordReset(wrongReset, 'Ribbon2026', 'Ribbon2026', NOW), '2 tries left') &&
+      lastSecurity().code === 'reset-code-wrong');
+check('a code expires after ten minutes', app.textHas(app.completePasswordReset(resetCode, 'Ribbon2026', 'Ribbon2026', NOW + 11 * 60000), 'expired'));
+var resetCode2 = app.resendResetCode(NOW + 31000).code;
+check('a new code can be sent', resetCode2.length === 6 && app.deskState.reset.tries === 0);
+check('the right code and a good password change it', app.completePasswordReset(resetCode2, 'Ribbon2026', 'Ribbon2026', NOW + 32000) === '' &&
+      app.deskState.stage === 'password' && app.deskState.reset === null && app.signInGuard(OWNER).lockedUntil === 0);
+check('logged as an alert', lastSecurity().code === 'password-changed' && lastSecurity().level === 'alert');
+check('the old password no longer works; the new one does', app.deskSignIn(OWNER, 'admin123', NOW + 33000) !== '' &&
+      app.deskSignIn(OWNER, 'Ribbon2026', NOW + 34000) === '' && app.deskState.stage === 'otp');
+var changedMail = app.emailPasswordChanged(OWNER, NOW + 32000);
+check('the owner is emailed that the password changed', changedMail && app.textHas(changedMail.subject, 'changed'));
+app.startPasswordReset(OWNER, NOW + 100000);
+app.resendResetCode(NOW + 131000);
+app.resendResetCode(NOW + 162000);
+check('three codes per reset', app.textHas(app.resendResetCode(NOW + 193000).message, 'Too many'));
+app.deskState.reset = null;
+app.deskState.stage = 'password';
+app.setAccountPassword(app.accountByEmail(OWNER), 'admin123');
+check('the password source stays free of the password text', !app.textHas(t.readText('js/admin-reset.js'), 'admin123'));
+
+section('code emails per hour');
+app.codeSends = app.hashCreate(17);
+var budgetAt = NOW + 5 * HOUR, started = 0, unknownStarted = 0;
+for (var bi = 0; bi < app.CODE_SEND_MAX; bi++) {
+    if (app.resetRequestProblem(OWNER, budgetAt + bi) === '' && app.startPasswordReset(OWNER, budgetAt + bi).length === 6) started++;
+    if (app.resetRequestProblem('nobody@gmail.com', budgetAt + bi) === '' && app.startPasswordReset('nobody@gmail.com', budgetAt + bi) === '') unknownStarted++;
+}
+check('starting a reset again still counts every code', started === app.CODE_SEND_MAX && app.textHas(app.resetRequestProblem(OWNER, budgetAt + 10), 'Too many'));
+check('…and the same for an email with no account, so the screen tells nothing', unknownStarted === app.CODE_SEND_MAX &&
+      app.textHas(app.resetRequestProblem('nobody@gmail.com', budgetAt + 10), 'Too many'));
+check('sign-in codes share the allowance', app.textHas(app.deskSignIn(OWNER, 'admin123', budgetAt + 20), 'Too many codes'));
+check('it comes back after an hour', app.resetRequestProblem(OWNER, budgetAt + app.CODE_SEND_WINDOW_MS + 1) === '');
+check('text that is not an email is never logged', app.typedEmail('Hunter2pass') === '(not an email address)' &&
+      app.deskSignIn('Hunter2pass', 'x', budgetAt) !== '' && app.logEntries('all', 'Hunter2pass').length === 0);
+check('only example.com itself is a demo address', app.isDemoAddress('bea@example.com') && !app.isDemoAddress('jo@example.com.ph') &&
+      !app.isDemoAddress('jo@example.company'));
+app.deskState.reset = null;
+app.deskState.stage = 'password';
+app.codeSends = app.hashCreate(17);
+
+section('desk accounts');
+var owner = app.accountByEmail(OWNER), bea = app.accountByEmail('BEA.cruz@example.com ');
+var idsInOrder = true;
+for (var ai = 1; ai < app.staffAccounts.length; ai++) if (app.staffAccounts[ai].id <= app.staffAccounts[ai - 1].id) idsInOrder = false;
+check('the credentials are an array in id order, indexed by email in a hash table', app.staffAccounts.length === 2 && idsInOrder &&
+      app.hashGet(app.staffEmailIndex, app.accountEmailKey(OWNER)) === 1 && owner.id === 1 && bea.id === 2);
+check('only salted hashes are stored, each with its own salt', owner.salt !== bea.salt && owner.passHash === app.passwordHash(owner.salt, 'admin123') &&
+      app.passwordHash('other-salt', 'admin123') !== owner.passHash && owner.password === undefined);
+var sourceText = t.readText('js/data.js') + t.readText('js/accounts.js') + t.readText('js/admin-signin.js') + t.readText('js/admin-reset.js') +
+                 t.readText('js/admin-account.js');
+check('no password is written in the source', !app.textHas(sourceText, 'admin123') && !app.textHas(sourceText, 'Staff2026'));
+check('a staff member signs in with their own credentials', app.deskSignIn('bea.cruz@example.com', 'Staff2026', NOW) === '' &&
+      app.deskState.pendingId === 2);
+var beaCode = app.issueOtp(NOW);
+check('…and the code makes them the person signed in', app.verifyOtp(beaCode, NOW + 1000) === '' && app.deskUserId === 2 &&
+      app.deskActor() === 'Bea Cruz' && bea.lastSignIn === NOW + 1000);
+var beaQuote = app.firstWhere(app.orders, function (o) { return o.status === 'requested'; });
+app.sendQuote(beaQuote.id, priced(app.quoteDraft(beaQuote)), NOW + 2000);
+check('what they do is logged under their name', app.logEntries('audit', beaQuote.ref)[0].actor === 'Bea Cruz');
+check('staff cannot add accounts', !app.addStaffAccount({ name: 'X Y', email: 'x@gmail.com', role: 'staff', password: 'Temp2026x', confirm: 'Temp2026x' }, bea, NOW).ok);
+var liaDraft = { name: 'Lia Reyes', email: 'lia.reyes@gmail.com', role: 'staff', password: 'Temp2026x', confirm: 'Temp2026x' };
+var lia = app.addStaffAccount(liaDraft, owner, NOW + 3000);
+check('an owner adds an account: appended, indexed, logged', lia.ok && lia.account.id === 3 && app.staffAccounts.length === 3 &&
+      app.accountByEmail('lia.reyes@gmail.com').id === 3 && lastSecurity().code === 'account-added');
+check('an email can only have one account', !app.addStaffAccount(liaDraft, owner, NOW).ok);
+check('no account on example.com, and no two with one name', !app.addStaffAccount({ name: 'Boss', email: 'boss@example.com', role: 'owner',
+      password: 'Temp2026x', confirm: 'Temp2026x' }, owner, NOW).ok && !app.addStaffAccount({ name: 'lia reyes', email: 'lia2@gmail.com',
+      role: 'staff', password: 'Temp2026x', confirm: 'Temp2026x' }, owner, NOW).ok);
+check('a weak temporary password is refused', app.textHas(app.addStaffAccount({ name: 'Ann Lim', email: 'ann@gmail.com', role: 'staff',
+      password: 'short', confirm: 'short' }, owner, NOW).error, '8 to 64'));
+check('the new account can sign in', app.deskSignIn('lia.reyes@gmail.com', 'Temp2026x', NOW + 4000) === '');
+app.deskState.stage = 'password';
+check('nobody can disable themselves', !app.setAccountActive(owner.id, false, owner, NOW).ok);
+check('an owner disables an account; it can no longer sign in (with the usual message)',
+      app.setAccountActive(3, false, owner, NOW + 5000).ok && lastSecurity().code === 'account-disabled' &&
+      app.textHas(app.deskSignIn('lia.reyes@gmail.com', 'Temp2026x', NOW + 6000), 'email or password'));
+check('a disabled account gets no reset code', app.startPasswordReset('lia.reyes@gmail.com', NOW + 7000) === '');
+app.deskState.reset = null;
+app.deskState.stage = 'password';
+check('and it can be enabled again', app.setAccountActive(3, true, owner, NOW + 8000).ok && app.accountById(3).active);
+check('changing your own password needs the current one', app.textHas(app.changeOwnPassword(bea, 'wrong', 'NewStaff2026', 'NewStaff2026', NOW), 'not right') &&
+      lastSecurity().code === 'current-wrong' && lastSecurity().actor === 'Bea Cruz');
+for (var cw = 0; cw < app.ADMIN_MAX_ATTEMPTS - 2; cw++) app.changeOwnPassword(bea, 'wrong', 'NewStaff2026', 'NewStaff2026', NOW);
+check('five wrong current passwords in a row pause the email (the screen signs out)',
+      app.textHas(app.changeOwnPassword(bea, 'wrong', 'NewStaff2026', 'NewStaff2026', NOW), 'Signing out') &&
+      app.signInGuard(bea.email).lockedUntil > NOW);
+app.signInGuard(bea.email).lockedUntil = 0;
+check('…and then works', app.changeOwnPassword(bea, 'Staff2026', 'NewStaff2026', 'NewStaff2026', NOW + 9000) === '' &&
+      app.checkPassword(bea, 'NewStaff2026') && !app.checkPassword(bea, 'Staff2026') && lastSecurity().code === 'password-changed');
+check('a reset works for a staff account too', app.startPasswordReset('bea.cruz@example.com', NOW + 10000).length === 6 &&
+      app.deskState.reset.accountId === 2);
+app.deskState.reset = null;
+app.deskState.stage = 'password';
+app.deskUserId = 0;
+app.deskState.authed = false;
+check('signed out, the audit log names the order desk again', app.deskActor() === 'Order desk');
+
+section('courier tracking');
+var shipped = app.firstWhere(app.orders, function (o) {
+    return o.fulfilment.mode === 'delivery' && o.fulfilment.courier && (o.status === 'paid' || o.status === 'completed');
+});
+var pickedUp = app.firstWhere(app.orders, function (o) { return o.fulfilment.mode === 'pickup' && o.status === 'completed'; });
+var draftT = function (changes) { return app.copyRecord({ courier: 'flash', number: 'P 0123 N5WX P8EA', link: '' }, changes); };
+check('a seeded courier delivery to try it on', shipped !== null);
+check('pickup orders take no tracking', !app.setCourierTracking(pickedUp.id, draftT({}), NOW).ok);
+check('unsafe or wrong links are refused', !app.setCourierTracking(shipped.id, draftT({ link: 'javascript:alert(1)' }), NOW).ok &&
+      !app.setCourierTracking(shipped.id, draftT({ link: 'http://flashexpress.ph/x' }), NOW).ok &&
+      !app.setCourierTracking(shipped.id, draftT({ link: 'https://lalamove.com@evil.example/x' }), NOW).ok &&
+      !app.setCourierTracking(shipped.id, draftT({ link: 'https://share.lalamove.com/a b' }), NOW).ok &&
+      !app.setCourierTracking(shipped.id, draftT({ link: 'https://x"onmouseover=y' }), NOW).ok);
+check('a number with other characters, or nothing at all, is refused', !app.setCourierTracking(shipped.id, draftT({ number: 'P01$23' }), NOW).ok &&
+      !app.setCourierTracking(shipped.id, draftT({ number: '', link: '' }), NOW).ok);
+// Demo customers are on example.com and never emailed; give this one a real-looking address.
+shipped.customer.email = 'tracking.test@gmail.com';
+var mailsBefore = app.outbox.length;
+var tracked = app.setCourierTracking(shipped.id, draftT({}), NOW + HOUR);
+check('a Flash number is tidied and attached', tracked.ok && shipped.courierTracking.number === 'P0123N5WXP8EA' &&
+      shipped.courierTracking.courier === 'flash');
+check('without a link, the customer is sent to the courier\'s own site', app.trackingHref(shipped.courierTracking) === 'https://www.flashexpress.ph');
+check('it goes in the history and the audit log, by the owner', app.textHas(shipped.history[shipped.history.length - 1].text, 'Courier tracking added') &&
+      app.logEntries('audit', shipped.ref)[0].actor === app.deskActor());
+var trackMail = app.firstWhere(app.backwards(app.outbox), function (m) { return m.kind === 'tracking'; });
+check('the customer is emailed the number', app.outbox.length === mailsBefore + 1 && trackMail && app.textHas(trackMail.body, 'P0123N5WXP8EA') &&
+      app.textHas(trackMail.body, 'weather'));
+check('saving the same again changes nothing', !app.setCourierTracking(shipped.id, draftT({}), NOW + HOUR).ok);
+check('a Lalamove share link is accepted and used', app.setCourierTracking(shipped.id, { courier: 'lalamove', number: '',
+      link: 'https://share.lalamove.com/?PH100231008123456&lang=en_PH' }, NOW + 2 * HOUR).ok &&
+      app.trackingHref(shipped.courierTracking) === 'https://share.lalamove.com/?PH100231008123456&lang=en_PH' &&
+      app.textHas(shipped.history[shipped.history.length - 1].text, 'changed'));
+check('the customer sees it on Track order', app.shownTracking(app.customerLookup(shipped.ref, shipped.customer.phone)) !== null);
+check('a link must be on that courier\'s own site', !app.setCourierTracking(shipped.id, draftT({ link: 'https://share.lalamove.com/x' }), NOW).ok &&
+      !app.setCourierTracking(shipped.id, { courier: 'lalamove', number: '', link: 'https://lalamove.com.evil.example/x' }, NOW).ok);
+check('another courier\'s link may not be an IP address or punycode', app.trackingLinkProblem('https://127.0.0.1/x', 'other') !== '' &&
+      app.trackingLinkProblem('https://xn--fla-ula.ph/x', 'other') !== '' && app.trackingLinkProblem('https://www.jtexpress.ph/track', 'other') === '');
+check('only courier deliveries that are marked ready take tracking', !app.canAttachTracking(app.copyRecord(shipped, { status: 'paid' })) &&
+      !app.canAttachTracking(app.copyRecord(shipped, { fulfilment: app.copyRecord(shipped.fulfilment, { courier: '' }) })));
+var mailsBeforeRemove = app.outbox.length;
+check('it can be removed, and the customer is told to ignore it', app.removeCourierTracking(shipped.id, NOW + 3 * HOUR).ok &&
+      shipped.courierTracking === null && app.outbox.length === mailsBeforeRemove + 1 &&
+      app.textHas(app.outbox[app.outbox.length - 1].subject, 'Correction'));
+var unpaidDelivery = request([MONEY], { mode: 'delivery', address: '12 Rizal St', barangay: '', city: 'Manila', courier: 'flash',
+                                       slot: '02:00 PM', date: '2026-10-10' }, NOW).order;
+check('an order not yet paid takes no tracking', unpaidDelivery && !app.setCourierTracking(unpaidDelivery.id, draftT({}), NOW).ok);
+
+section('data privacy notice and agreement');
+fillCart([ROSE]);
+var noConsent = app.validateRequest(form({ consent: false }), app.basketItems(), '2026-10-05');
+var noTerms = app.validateRequest(form({ terms: false }), app.basketItems(), '2026-10-05');
+check('an order needs the Privacy Notice agreed to', app.firstWhere(noConsent, function (e) { return e.field === 'consent'; }) !== null &&
+      app.firstWhere(noConsent, function (e) { return e.field === 'terms'; }) === null);
+check('…and, separately, the order terms', app.firstWhere(noTerms, function (e) { return e.field === 'terms'; }) !== null &&
+      app.firstWhere(noTerms, function (e) { return e.field === 'consent'; }) === null);
+check('nothing is created without them', !app.placeOrder(form({ consent: false }), 'gcash-100', freshRef(), NOW).ok);
+var agreed = app.placeOrder(form({ email: 'privacy.test@gmail.com' }), 'gcash-100', freshRef(), NOW + HOUR).order;
+check('the order records which notice was agreed to, and when', agreed.consent.privacyVersion === app.PRIVACY_NOTICE_VERSION &&
+      agreed.consent.terms === true && agreed.consent.termsVersion === app.ORDER_TERMS_VERSION && agreed.consent.at === NOW + HOUR);
+check('the agreement is the first line of its history, and in the audit log as the customer',
+      app.textHas(agreed.history[0].text, 'Privacy Notice') && app.firstWhere(app.logEntries('audit', agreed.ref), function (e) {
+          return app.textHas(e.action, 'Privacy Notice') && e.actor === 'Customer'; }) !== null);
+check('every demo order carries the agreement too', app.countWhere(app.orders, function (o) { return !o.consent; }) === 0);
+var noticeText = app.renderEach(app.PRIVACY_NOTICE, function (sct) { return sct.title + ' ' + app.glue(sct.text, ' '); }, ' ');
+check('the notice cites the Data Privacy Act and the rights it gives', app.textHas(noticeText, 'Republic Act No. 10173') &&
+      app.textHas(noticeText, 'National Privacy Commission') && app.textHas(noticeText, 'access') && app.textHas(noticeText, 'erased') &&
+      app.textHas(noticeText, 'courier') && app.textHas(noticeText, 'EmailJS'));
+check('the order terms say payments are non-refundable and no cancellations once production starts',
+      app.textHas(app.glue(app.ORDER_TERMS, ' '), 'non-refundable') && app.textHas(app.glue(app.ORDER_TERMS, ' '), 'No cancellations'));
+
+section('schedule notes');
+check('delivery and pickup notes mention the weather', app.textHas(app.scheduleNote('delivery'), 'weather') &&
+      app.textHas(app.scheduleNote('pickup'), 'weather') && app.scheduleNote('delivery') !== app.scheduleNote('pickup'));
+var confirmedMail = app.firstWhere(app.backwards(app.outbox), function (m) { return m.kind === 'confirmed'; });
+check('the confirmation email says dates are estimates', confirmedMail && app.textHas(confirmedMail.body, 'weather'));
+var requestedMail = app.firstWhere(app.backwards(app.outbox), function (m) { return m.kind === 'requested'; });
+check('so does the quote request email', requestedMail && app.textHas(requestedMail.body, 'weather'));
+check('receipts know pickup from delivery, for the note', app.receipts[app.receipts.length - 1].mode === 'pickup' ||
+      app.receipts[app.receipts.length - 1].mode === 'delivery');
+
+section('sample photos');
+var noCover = app.keepWhere(app.products, function (p) { return app.productCover(p) === ''; });
+check('every product has a photograph', noCover.length === 0, app.renderEach(noCover, function (p) { return p.name; }, ', '));
+var missingFiles = [];
+for (var pi = 0; pi < app.products.length; pi++) {
+    for (var gi = 0; gi < app.products[pi].gallery.length; gi++) {
+        if (!t.exists(app.products[pi].gallery[gi])) app.listAdd(missingFiles, app.products[pi].gallery[gi]);
+    }
+}
+check('every gallery photograph is on disk', missingFiles.length === 0, app.glue(missingFiles, ', '));
+check('the sweets bouquet and the beer-in-can cake use credited sample photos',
+      app.photoCredit(app.productCover(app.productById(204))) !== null && app.photoCredit(app.productCover(app.productById(302))) !== null);
+check('every sample photo names its author, source and licence', app.countWhere(app.PHOTO_CREDITS, function (c) {
+    return c.author && app.beginsWith(c.source, 'https://') && app.beginsWith(c.licenseUrl, 'https://creativecommons.org/') && t.exists('assets/products/' + c.file);
+}) === app.PHOTO_CREDITS.length);
+check('the shop\'s own photographs carry no credit', app.photoCredit(app.productCover(app.productById(101))) === null);
+check('the credits are written down in assets/products/CREDITS.md', t.exists('assets/products/CREDITS.md') &&
+      app.countWhere(app.PHOTO_CREDITS, function (c) { return app.textHas(t.readText('assets/products/CREDITS.md'), c.file); }) === app.PHOTO_CREDITS.length);
 
 section('demo addresses are never emailed');
 var before2 = app.outbox.length;

@@ -1,13 +1,14 @@
 /* =========================================================================
    ORDER DESK · ORDER SHEET — details, quotation, editing, payments, voids.
 
-   One sheet, four modes:
-     order  everything about an order: items, contact, quotation,
-            receipts, history and the revision log
-     quote  price each line from materials, labour and item cost, confirm
-            the delivery fee, and send the quotation
-     edit   change any detail of the order; every change is logged
-     pay    record a GCash payment taken outside the site
+   One sheet, five modes:
+     order     everything about an order: items, contact, quotation,
+               receipts, history and the revision log
+     quote     price each line from materials, labour and item cost,
+               confirm the delivery fee, and send the quotation
+     edit      change any detail of the order; every change is logged
+     pay       record a GCash payment taken outside the site
+     tracking  attach the courier's tracking number or link
    Depends on admin-desk.js, orders.js, editing.js and receipt.js.
    ========================================================================= */
 
@@ -263,6 +264,26 @@ function deskPaymentHtml(order) {
 }
 
 /* =========================================================================
+   MODE: COURIER TRACKING
+   ========================================================================= */
+
+/* The tracking form: courier, number, link.  Time O(n) · Space O(n) */
+function trackingEditorHtml(order) {
+    var d = deskSheetState.draft;
+    return '<p class="t-callout dim-2 mb-4">Once the courier has the parcel, enter the parcel number it gave you, its tracking link, or both. ' +
+        'The customer sees them on Track order and gets them by email.</p>' +
+        '<div class="edit-grid"><label class="field"><span class="field-label">Courier</span><select class="select" data-track-field="courier">' +
+        optionsHtml(trackingCouriers(), d.courier, function (c) { return c.id; }, function (c) { return c.name; }) + '</select></label>' +
+        '<label class="field"><span class="field-label">Parcel number</span><input class="input t-mono" data-track-field="number" maxlength="60" ' +
+        'autocomplete="off" placeholder="e.g. P0123N5WXP8EA" value="' + escapeHtml(d.number) + '"></label></div>' +
+        '<label class="field"><span class="field-label">Tracking link (optional)</span><input class="input" data-track-field="link" maxlength="' +
+        TRACKING_LINK_MAX + '" autocomplete="off" placeholder="https://… — the link the courier sent, e.g. a Lalamove share link" value="' +
+        escapeHtml(d.link) + '"></label>' +
+        '<p class="t-foot dim mt-2">Only https:// links on the courier\'s own site are accepted. Without a link the customer is pointed to the courier\'s own website to enter the number.</p>' +
+        errorListHtml(deskSheetState.errors);
+}
+
+/* =========================================================================
    RENDER AND OPEN
    ========================================================================= */
 
@@ -282,6 +303,12 @@ function renderDeskSheet() {
         foot.innerHTML = '<div class="row-between"><p class="t-foot t-num" id="editTotals">' + escapeHtml(editTotalsText(order)) + '</p>' +
             '<div class="row-center"><button class="ui-btn ui-btn-quiet" type="button" data-desk="back">Cancel</button>' +
             '<button class="ui-btn ui-btn-primary" type="button" data-desk="save-edit">Save changes</button></div></div>';
+    } else if (s.mode === 'tracking') {
+        $('#deskTitle').textContent = 'Courier tracking · ' + order.ref;
+        body.innerHTML = trackingEditorHtml(order);
+        foot.innerHTML = '<div class="row-center"><button class="ui-btn ui-btn-quiet" type="button" data-desk="back">Cancel</button>' +
+            (order.courierTracking ? '<button class="ui-btn ui-btn-danger" type="button" data-desk="remove-tracking">Remove</button>' : '') +
+            '<button class="ui-btn ui-btn-primary flex-fill" type="button" data-desk="save-tracking">Save and email the customer</button></div>';
     } else if (s.mode === 'pay') {
         $('#deskTitle').textContent = 'Record payment · ' + order.ref;
         body.innerHTML = deskPaymentHtml(order);
@@ -327,6 +354,16 @@ function openOrderEditor(id) {
     openDeskMode(id, 'edit', orderEditDraft(order));
 }
 
+/* The tracking form, filled with what the order has, or its courier.
+                                          Time O(n²) · Space O(n) */
+function openTrackingEditor(id) {
+    var order = orderById(id);
+    if (!canAttachTracking(order)) { toast({ title: 'Courier tracking can be added once a courier delivery is marked ready.', kind: 'warn' }); return; }
+    var t = order.courierTracking;
+    openDeskMode(id, 'tracking', t ? { courier: t.courier, number: t.number, link: t.link }
+                                   : { courier: order.fulfilment.courier, number: '', link: '' });
+}
+
 /*                                        Time O(n²) · Space O(n) */
 function openDeskPayment(id, kind) {
     openDeskMode(id, 'pay', null);
@@ -369,6 +406,8 @@ function onDeskInput(e) {
         d[t.getAttribute('data-q-fee')] = toNumber(t.value);
     } else if (t.hasAttribute('data-q-note')) {
         d.note = t.value;
+    } else if (t.hasAttribute('data-track-field')) {
+        d[t.getAttribute('data-track-field')] = t.value;
     } else if (t.hasAttribute('data-item')) {
         onEditItemInput(t);
     } else if (t.hasAttribute('data-edit')) {
@@ -444,9 +483,20 @@ function onDeskSheetClick(e) {
         toast({ title: 'Order updated', message: saved.changes.length + ' ' + plural(saved.changes.length, 'change') + ' logged', kind: 'success' });
         deskChanged();
         openDeskOrder(s.orderId);
+    } else if (t.getAttribute('data-desk') === 'save-tracking') {
+        var tracked = setCourierTracking(s.orderId, d, Date.now());
+        if (!tracked.ok) { s.errors = tracked.errors; renderDeskSheet(); return; }
+        toast({ title: 'Tracking saved', message: 'The customer has been emailed the tracking details.', kind: 'success' });
+        deskChanged();
+        openDeskOrder(s.orderId);
+    } else if (t.getAttribute('data-desk') === 'remove-tracking') {
+        var removed = removeCourierTracking(s.orderId, Date.now());
+        toast(removed.ok ? { title: 'Tracking removed', kind: 'info' } : { title: removed.errors[0].message, kind: 'warn' });
+        deskChanged();
+        openDeskOrder(s.orderId);
     } else if (t.getAttribute('data-desk') === 'save-payment') {
         var ref = $('#deskGcashRef').value;
-        var paid = s.kind === 'accept' ? acceptQuote(s.orderId, s.method, ref, Date.now()) : payBalance(s.orderId, ref, Date.now());
+        var paid = s.kind === 'accept' ? acceptQuote(s.orderId, s.method, ref, Date.now(), deskActor()) : payBalance(s.orderId, ref, Date.now(), deskActor());
         if (!paid.ok) { s.errors = [paid.error]; renderDeskSheet(); $('#deskGcashRef').value = ref; return; }
         toast({ title: 'Payment recorded', message: 'Receipt ' + paid.receipt.no, kind: 'success' });
         deskChanged();

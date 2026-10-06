@@ -201,7 +201,7 @@ function seedRun(event, ids) {
             name: spec.who[0], phone: spec.who[1], handle: spec.who[2], email: seedEmail(spec.who[0]),
             mode: where.mode, date: when.date, slot: when.slot,
             address: where.address || '', barangay: where.barangay || '', city: where.city || '',
-            courier: where.courier || '', rush: spec.rush === true, notes: ''
+            courier: where.courier || '', rush: spec.rush === true, notes: '', consent: true, terms: true
         }, event.stamp);
         ids[event.index] = made.ok ? made.order.id : -1;
         return made.ok;

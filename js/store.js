@@ -22,8 +22,13 @@ var completedStack = stackCreate(); // completions, newest on top, for undo
 var categoryTree = null;       // n-ary tree of the order sheet's categories
 var areaIndex = null;          // hash table: city name -> delivery area
 var referenceIndex = null;     // hash table: flower|arrangement|colour -> photo
-var counters = { order: 201, receipt: 1, mail: 1 };
+var counters = { order: 201, receipt: 1, mail: 1, log: 1 };
 var outbox = [];               // every email the shop has written, oldest first
+var auditLog = [];             // security and audit events, oldest first (append-only)
+var failedSignIns = hashCreate(17); // hash table: email typed -> wrong passwords, pause
+var codeSends = hashCreate(17);    // hash table: email -> codes emailed this hour
+var staffAccounts = [];        // the order desk's credentials, ascending by id (accounts.js)
+var staffEmailIndex = hashCreate(17); // hash table: account email -> account id
 var mailQueue = cqCreate(8);   // outbox positions waiting to be sent (FIFO)
 var mailEnabled = false;       // off while the demo history is replayed
 
@@ -38,8 +43,12 @@ function storeInit() {
     rushLane = heapCreate();
     standardLane = cqCreate(8);
     completedStack = stackCreate();
-    counters = { order: 201, receipt: 1, mail: 1 };
+    counters = { order: 201, receipt: 1, mail: 1, log: 1 };
     outbox = [];
+    auditLog = [];
+    failedSignIns = hashCreate(17);
+    codeSends = hashCreate(17);
+    buildAccounts();
     mailQueue = cqCreate(8);
     mailEnabled = false;
     categoryTree = treeFromOutline('All gifts', CATEGORY_OUTLINE);
@@ -181,6 +190,12 @@ function priceLabel(product) {
     if (product.kind === 'fixed') return pesoWhole(product.price);
     var from = productStartsAt(product);
     return from > 0 ? 'Starts at ' + pesoWhole(from) : 'Customized Pricing';
+}
+
+/* The credit for a sample photo from the web (PHOTO_CREDITS), or null for
+   the shop's own photographs.            Time O(n) · Space O(n) */
+function photoCredit(src) {
+    return firstWhere(PHOTO_CREDITS, function (c) { return IMG_PRODUCTS + c.file === src; });
 }
 
 /*                                        Time O(1)  · Space O(1) */
@@ -518,6 +533,12 @@ function longestLead(items) {
         if (product && product.leadDays > most) most = product.leadDays;
     }
     return most;
+}
+
+/* What a date and time really mean: the shop's best estimate, which the
+   weather and the road can still move.   Time O(1)  · Space O(1) */
+function scheduleNote(mode) {
+    return mode === 'delivery' ? SCHEDULE_NOTE_DELIVERY : SCHEDULE_NOTE_PICKUP;
 }
 
 /* First date the shop can have it ready.  Time O(n²) · Space O(1) */

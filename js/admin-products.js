@@ -37,6 +37,7 @@ function toggleProduct(id) {
     if (!product) return;
     if (!product.active) {
         setProductActive(id, true);
+        logAudit(Date.now(), deskActor(), 'Product enabled: ' + product.name, '', '');
         toast({ title: product.name + ' is back in the shop', kind: 'success' });
         deskChanged();
         return;
@@ -47,6 +48,7 @@ function toggleProduct(id) {
         confirmLabel: 'Disable', danger: true,
         onConfirm: function () {
             setProductActive(id, false);
+            logAudit(Date.now(), deskActor(), 'Product disabled: ' + product.name, '', 'Hidden from the shop; past orders kept', 'warn');
             toast({ title: product.name + ' disabled', kind: 'info' });
             deskChanged();
         }
@@ -236,6 +238,7 @@ function onProductEditorClick(e) {
     } else if (t.hasAttribute('data-p-save')) {
         var saved = updateProduct(deskSheetState.productId, d);
         if (!saved.ok) { deskSheetState.errors = [saved.error]; renderProductEditor(); return; }
+        logAudit(Date.now(), deskActor(), 'Product edited: ' + saved.product.name, '', 'Price list, photos, options or wording');
         toast({ title: saved.product.name + ' saved', kind: 'success' });
         sheetClose(deskSheet);
         deskChanged();

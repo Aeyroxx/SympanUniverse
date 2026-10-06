@@ -87,7 +87,10 @@ var ICONS = [
     { id: 'chat',    d: '<path d="M4 5h16v11H9l-5 4z"/>' },
     { id: 'upload',  d: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>' },
     { id: 'logout',  d: '<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h10"/>' },
-    { id: 'eye',     d: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>' }
+    { id: 'eye',     d: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>' },
+    { id: 'download', d: '<path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 16v4h16v-4"/>' },
+    { id: 'external', d: '<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v6H4V6h6"/>' },
+    { id: 'cloud',   d: '<path d="M7 18a4 4 0 0 1-.6-7.96A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9Z"/><path d="M9 21l1-2M13 21l1-2"/>' }
 ];
 
 /* Inline SVG for an icon name.           Time O(n)  · Space O(1) */
@@ -387,6 +390,12 @@ function imageOrEmpty(src, alt) {
         return '<div class="card-media-empty">' + icon('image', 28) + '<span>Photo coming soon</span></div>';
     }
     return '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt || '') + '" loading="lazy" decoding="async">';
+}
+
+/* The note that dates and times are estimates the weather and the road
+   can still move.                        Time O(n) · Space O(n) */
+function scheduleNoteHtml(mode) {
+    return '<p class="notice schedule-note">' + icon('cloud', 16) + '<span>' + escapeHtml(scheduleNote(mode)) + '</span></p>';
 }
 
 /* Specification chips.                   Time O(n)  · Space O(n) */

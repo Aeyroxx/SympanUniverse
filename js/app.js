@@ -22,6 +22,7 @@ function showShop(hash) {
     setHidden($('#shopView'), false);
     document.title = SHOP_TITLE;
     if (!wasHidden) return;
+    refreshPrivacyBanner();
     refreshShop();
     var target = hash ? document.getElementById(textPart(hash, 1)) : null;
     if (target) target.scrollIntoView();
@@ -41,11 +42,13 @@ function fillIcons() {
     for (var i = 0; i < buttons.length; i++) buttons[i].innerHTML = icon(buttons[i].getAttribute('data-icon'));
 }
 
-/* The shop's own housekeeping, so the owner doesn't have to: void
-   quotations left unpaid too long (emailing the customer), then refresh
-   what is on screen. Runs on start-up and every minute.
+/* The shop's own housekeeping, so the owner doesn't have to: sign out a
+   desk left idle, void quotations left unpaid too long (emailing the
+   customer), then refresh what is on screen. Runs on start-up and every
+   minute.
                                           Time O(n²) · Space O(n) */
 function runAutomation() {
+    checkDeskIdle(Date.now());
     var expired = expireQuotes(Date.now());
     if (expired.length === 0) return;
     refreshShop();
@@ -67,6 +70,7 @@ function boot() {
     initProductSheet();
     initBasket();
     initTrack();
+    initPrivacy();
     initDesk();
     window.addEventListener('hashchange', route);
     if (location.hash === '#admin') route();

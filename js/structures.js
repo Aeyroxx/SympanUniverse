@@ -471,7 +471,11 @@ function treeFromOutline(rootLabel, branches) {
 
    A key is hashed to a bucket and only that bucket's chain is scanned.
    Collisions are absorbed by the chain, so a look-up is O(1) on average
-   and O(n) in the worst case, when every key lands in one bucket.
+   and O(n) in the worst case, when every key lands in one bucket. When
+   there are more than two keys per bucket on average, the table doubles
+   its buckets and puts every key in its new bucket, so the chains stay
+   short however many keys arrive (the sign-in tables are keyed by what
+   people type, so their size is not known in advance).
    ========================================================================= */
 
 /*                                        Time O(n) · Space O(n) */
@@ -486,7 +490,7 @@ function hashIndex(table, key) {
     return fnv1a(key) % table.bucketCount;
 }
 
-/* Insert or overwrite.                   Time O(1) average · Space O(1) */
+/* Insert or overwrite.                   Time O(1) average, amortised · Space O(1) amortised */
 function hashPut(table, key, value) {
     var chain = table.buckets[hashIndex(table, key)];
     for (var i = 0; i < chain.length; i++) {
@@ -494,6 +498,23 @@ function hashPut(table, key, value) {
     }
     chain[chain.length] = { key: key, value: value };
     table.size++;
+    if (table.size > 2 * table.bucketCount) hashGrow(table);
+}
+
+/* Double the buckets (plus one, to stay odd) and move every key to its
+   new bucket. Rare: it runs once each time the table doubles, so adding
+   stays O(1) amortised.                  Time O(n) · Space O(n) */
+function hashGrow(table) {
+    var old = table.buckets, count = table.bucketCount * 2 + 1, buckets = [];
+    for (var b = 0; b < count; b++) buckets[b] = [];
+    table.buckets = buckets;
+    table.bucketCount = count;
+    for (var i = 0; i < old.length; i++) {
+        for (var k = 0; k < old[i].length; k++) {
+            var chain = buckets[hashIndex(table, old[i][k].key)];
+            chain[chain.length] = old[i][k];
+        }
+    }
 }
 
 /* The value for a key, or null.          Time O(1) average · Space O(1) */
@@ -508,6 +529,17 @@ function hashGet(table, key) {
 /*                                        Time O(1) average · Space O(1) */
 function hashHas(table, key) {
     return hashGet(table, key) !== null;
+}
+
+/* Every { key, value } in the table, bucket by bucket.
+                                          Time O(n) · Space O(n) */
+function hashEntries(table) {
+    var out = [];
+    for (var i = 0; i < table.bucketCount; i++) {
+        var chain = table.buckets[i];
+        for (var k = 0; k < chain.length; k++) out[out.length] = { key: chain[k].key, value: chain[k].value };
+    }
+    return out;
 }
 
 /* Load factor and the longest chain — how evenly the keys spread.

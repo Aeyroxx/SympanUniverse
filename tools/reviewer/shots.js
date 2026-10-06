@@ -62,6 +62,12 @@ async function typeInto(page, selector, text) {
     await page.type(selector, text);
 }
 
+/* Tick a checkout agreement box.          Time O(1) · Space O(1) */
+async function agree(page, field) {
+    await page.$eval('[data-form="' + field + '"]', function (box) { if (!box.checked) box.click(); });
+    await settle(150);
+}
+
 /* Scroll a sheet's body to an element inside it.  Time O(1) · Space O(1) */
 async function scrollSheetTo(page, selector) {
     await page.$eval(selector, function (el) { el.scrollIntoView({ block: 'center' }); });
@@ -78,6 +84,9 @@ async function run() {
     await page.goto(PAGE_URL, { waitUntil: 'networkidle0' });
     // Never send through the shop's real EmailJS account from an automated run.
     await page.evaluate(function () { EMAIL_CONFIG.serviceId = ''; EMAIL_CONFIG.templateId = ''; EMAIL_CONFIG.publicKey = ''; });
+    // The privacy banner is shown once per visit; put it away for the pictures.
+    await page.click('#privacyDismiss');
+    await settle(300);
 
     console.log('shop');
     await view(page, 'cover-home');
@@ -146,6 +155,10 @@ async function run() {
     await view(page, 'm07-delivery');
     await page.click('[data-mode="pickup"]');
     await settle(300);
+    await agree(page, 'consent');
+    await agree(page, 'terms');
+    await scrollSheetTo(page, '.consent-block');
+    await view(page, 'm07-consent');
     await page.click('#basketFoot [data-step="review"]');
     await settle(400);
     await page.type('[data-form="gcash"]', '1234567890123');
@@ -174,8 +187,13 @@ async function run() {
     console.log('order desk');
     await page.evaluate(function () { location.hash = '#admin'; });
     await settle(400);
-    var owner = await page.evaluate(function () { return EMAIL_CONFIG.adminEmail; });
+    var owner = await page.evaluate(function () { return accountById(1).email; });
+    // One wrong password first, so the Logs tab has something to show.
     await page.type('#loginEmail', owner);
+    await page.type('#passcodeInput', 'not-the-password');
+    await page.click('#loginSubmit');
+    await settle(300);
+    await page.evaluate(function () { showFormError('#loginError', ''); });
     await page.type('#passcodeInput', 'admin123');
     await view(page, 'm12-login');
     await page.click('#loginSubmit');
@@ -199,6 +217,22 @@ async function run() {
     await page.click('[data-tab="production"]');
     await settle(300);
     await view(page, 'm10-production');
+    var parcelPhone = await page.evaluate(function () { return orderById(205).customer.phone; });
+    await page.click('#findInput');
+    await page.type('#findInput', 'SU-205');
+    await page.keyboard.press('Enter');
+    await settle();
+    await page.click('#deskFoot [data-act="tracking"]');
+    await settle(300);
+    // SU-205 went by Lalamove: its order number and its share link.
+    await page.select('[data-track-field="courier"]', 'lalamove');
+    await typeInto(page, '[data-track-field="number"]', '1072 6100 6123');
+    await typeInto(page, '[data-track-field="link"]', 'https://share.lalamove.com/?PH10726100612');
+    await view(page, 'm10-courier');
+    await page.click('#deskFoot [data-desk="save-tracking"]');
+    await settle();
+    await page.keyboard.press('Escape');
+    await settle();
     await page.click('[data-tab="completed"]');
     await settle(300);
     await view(page, 'm11-completed');
@@ -208,6 +242,47 @@ async function run() {
     await page.click('[data-tab="outbox"]');
     await settle(300);
     await view(page, 'm09-outbox');
+    // Let the "Tracking saved" toast go before the next pictures.
+    await page.evaluate(function () {
+        var toasts = document.querySelectorAll('.ui-toast');
+        for (var i = 0; i < toasts.length; i++) toasts[i].remove();
+    });
+    await page.click('[data-tab="account"]');
+    await settle(300);
+    await page.$eval('#adminMain .account-table', function (el) { el.scrollIntoView({ block: 'center' }); });
+    await settle(300);
+    await view(page, 'm12-accounts');
+    await page.click('[data-tab="logs"]');
+    await settle(300);
+    await page.evaluate(function () { window.scrollTo(0, 0); });
+    await settle(200);
+    await view(page, 'm13-logs');
+    await page.click('#logoutButton');
+    await settle(400);
+
+    console.log('after signing out');
+    await page.click('#trackButton');
+    await settle();
+    await page.type('#trackRef', 'SU-205');
+    await page.type('#trackPhone', parcelPhone);
+    await page.click('#trackBody button[type="submit"]');
+    await settle(400);
+    await scrollSheetTo(page, '#trackBody .tracking-card');
+    await view(page, 'm10-parcel');
+    await page.keyboard.press('Escape');
+    await settle();
+    await page.evaluate(function () { location.hash = '#admin'; });
+    await settle(400);
+    await page.click('#forgotButton');
+    await settle(300);
+    await typeInto(page, '#resetEmail', owner);
+    await page.click('#resetSubmit');
+    await settle(400);
+    var resetCode = await page.$eval('#resetDemo .otp-demo-code', function (el) { return el.textContent; });
+    await page.type('#resetCode', resetCode);
+    await page.type('#resetPassword', 'Ribbon2026');
+    await page.type('#resetConfirm', 'Ribbon2026');
+    await view(page, 'm13-reset');
 
     await browser.close();
 }

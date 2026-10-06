@@ -165,6 +165,12 @@ function isDigit(c) {
     return code >= 48 && code <= 57;
 }
 
+/* Is this character a letter A-Z or a-z? Time O(1)  · Space O(1) */
+function isLetter(c) {
+    var code = c.charCodeAt(0);
+    return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
 /* Characters start..end-1.               Time O(n) · Space O(n) */
 function textPart(text, start, end) {
     var s = String(text);
@@ -172,6 +178,19 @@ function textPart(text, start, end) {
     var out = '';
     for (var i = start < 0 ? 0 : start; i < stop; i++) out += s.charAt(i);
     return out;
+}
+
+/* The first `end` characters of a text, never cutting a character stored
+   as two halves (an emoji, say) in two — half of one would break whatever
+   reads the text next, such as an encoded download link.
+                                          Time O(n) · Space O(n) */
+function textCut(text, end) {
+    var s = String(text), stop = end < s.length ? end : s.length;
+    if (stop > 0 && stop < s.length) {
+        var code = s.charCodeAt(stop - 1);
+        if (code >= 0xD800 && code <= 0xDBFF) stop--;
+    }
+    return textPart(s, 0, stop);
 }
 
 /* Remove leading and trailing whitespace. Time O(n) · Space O(n) */
