@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sympan Universe | Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script>
+        let pw = prompt("ADMIN ACCESS ONLY. Enter password (admin123):");
+        if (pw !== "admin123") window.location.href = "index.html";
+    </script>
+</head>
+<body>
+
+<div class="paper-container">
+    <nav class="navbar navbar-expand-lg d-flex justify-content-between align-items-center border-bottom border-dashed pb-3 mb-4">
+        <a class="navbar-brand" href="index.html"><img src="image_ee5377.png" alt="Sympan Universe"></a>
+        <ul class="navbar-nav flex-row gap-4">
+            <li class="nav-item"><a class="nav-link" href="index.html">SHOP</a></li>
+            <li class="nav-item"><a class="nav-link text-decoration-underline" href="admin.html">ADMIN</a></li>
+        </ul>
+    </nav>
+    
+    <div class="text-center mb-4">
+        <h2 class="serif-text">ORDER MANAGEMENT SYSTEM</h2>
+        <div class="dashed-divider"></div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8 text-center">
+            
+            <pre id="adminOutput" class="mb-4 text-start fw-bold fs-6"></pre>
+
+            <h4 class="mb-3 serif-text">QUEUE PROCESSING</h4>
+            <div class="d-flex gap-3 justify-content-center mb-5">
+                <button class="btn btn-typewriter w-50 py-3" onclick="uiAdminPop('reg')">COMPLETE 1 REGULAR ORDER</button>
+                <button class="btn btn-wax w-50 py-3" onclick="uiAdminPop('vip')">COMPLETE 1 RUSH ORDER</button>
+            </div>
+
+            <div class="dashed-divider"></div>
+
+            <h4 class="mb-3 serif-text mt-4">ORDER HISTORY</h4>
+            <button class="btn btn-outline-dark py-2 w-50" onclick="uiAdminPop('undo')" style="border: 2px dashed #333;">UNDO LAST COMPLETED ORDER</button>
+            <p class="text-muted small mt-2 fw-bold">Pops the most recent order from History and returns it to the active Queue.</p>
+        </div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

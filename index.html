@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Sýmpan Universe — handcrafted ribbon bouquets, money bouquets and gift cakes from Meycauayan, Bulacan. Flower bouquets priced and paid online; gifts quoted from materials and labour.">
+<meta name="theme-color" content="#fbfbfd">
+<title>Sýmpan Universe — Handcrafted Ribbon Bouquets</title>
+
+<link rel="icon" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/pages.css">
+<link rel="stylesheet" href="css/shop.css">
+<link rel="stylesheet" href="css/desk.css">
+</head>
+<body>
+
+<a class="skip-link" href="#catalog">Skip to the catalogue</a>
+<div class="scroll-edge" aria-hidden="true"></div>
+
+<!-- =====================================================================
+     THE SHOP
+     ===================================================================== -->
+<div id="shopView">
+
+<header class="app-nav">
+    <div class="wrap nav-inner">
+        <a class="brand" href="#top" aria-label="Sýmpan Universe, home">
+            <img src="assets/logo.png" alt="">
+            <span>
+                <span class="brand-name">Sýmpan</span><br>
+                <span class="brand-sub">Universe</span>
+            </span>
+        </a>
+
+        <nav class="nav-links flex-fill" aria-label="Primary">
+            <a class="nav-link" href="#catalog">Shop</a>
+            <button class="nav-link nav-button" type="button" id="trackButton">Track order</button>
+        </nav>
+
+        <button class="ui-btn ui-btn-primary ui-btn-sm position-relative" id="basketButton" type="button"
+                aria-label="Open your cart">
+            <span id="basketIcon"></span>
+            <span class="d-none d-sm-inline">Cart</span>
+            <span class="count-dot hidden" id="basketCount">0</span>
+        </button>
+    </div>
+</header>
+
+<main id="main">
+
+<section class="hero" id="top">
+    <div class="wrap wrap-narrow position-relative">
+        <img class="hero-logo" src="assets/logo.png" alt="Sýmpan Universe">
+        <p class="t-over hero-eyebrow">Meycauayan · Bulacan</p>
+        <h1 class="t-hero">Flowers that outlast<br>the occasion.</h1>
+        <p class="lede">Every bloom here is satin ribbon, rolled and folded by hand, in any of twenty
+            colours. Flower bouquets are priced from the shop's own price list and paid at checkout;
+            money, makeup, sweets and cake gifts are quoted from materials and labour.</p>
+        <div class="hero-actions">
+            <a class="ui-btn ui-btn-primary ui-btn-lg" href="#catalog">Browse the catalogue</a>
+            <a class="ui-btn ui-btn-outline ui-btn-lg" href="#how">How pricing works</a>
+        </div>
+        <div class="trust-row t-foot" id="trustRow"></div>
+    </div>
+</section>
+
+<section class="wrap section-tight" aria-labelledby="bestTitle">
+    <div class="mb-4">
+        <p class="t-over dim">Best sellers</p>
+        <h2 class="t-title1" id="bestTitle">Most ordered right now</h2>
+        <p class="t-foot dim mt-1" id="bestNote">Ranked by pieces sold across paid orders. It updates the moment an order is paid.</p>
+    </div>
+    <div class="grid-products" id="bestSellers"></div>
+</section>
+
+<section class="wrap section" id="catalog" aria-labelledby="catalogTitle">
+    <div class="mb-4">
+        <p class="t-over dim">The full range</p>
+        <h2 class="t-display" id="catalogTitle">Catalogue</h2>
+    </div>
+
+    <div class="toolbar">
+        <div class="toolbar-rows">
+            <div class="toolbar-top">
+                <label class="search flex-fill">
+                    <span class="sr-only">Search the catalogue</span>
+                    <span id="searchIcon"></span>
+                    <input class="input" type="search" id="searchInput"
+                           placeholder="Search roses, money bouquet, diaper cake…" autocomplete="off">
+                </label>
+                <label class="sr-only" for="sortSelect">Sort by</label>
+                <select class="select sort-select" id="sortSelect">
+                    <option value="best">Best selling</option>
+                    <option value="name">Name, A–Z</option>
+                    <option value="price">Starting price, low to high</option>
+                    <option value="newest">Newest first</option>
+                </select>
+            </div>
+            <div class="chip-row" id="categoryChips" role="group" aria-label="Filter by category"></div>
+            <div class="chip-row hidden" id="lineChips" role="group" aria-label="Filter by line"></div>
+        </div>
+    </div>
+
+    <div class="row-between mt-4 mb-3">
+        <p class="result-count t-foot" id="resultCount" role="status" aria-live="polite"></p>
+        <button class="ui-btn ui-btn-ghost ui-btn-sm hidden" id="clearFilters" type="button">Clear filters</button>
+    </div>
+    <div class="grid-products" id="catalogGrid"></div>
+</section>
+
+<section class="wrap section" id="how" aria-labelledby="howTitle">
+    <div class="mb-5 text-center">
+        <p class="t-over dim">How pricing works</p>
+        <h2 class="t-display" id="howTitle">Price list, or a quote</h2>
+        <p class="lede mx-auto mt-3">Price varies depending on size, quantity and design. Flower bouquets
+            and the picture bouquet are priced from the shop's price list, so you pay at checkout. Money,
+            makeup, sweets, diaper and beer gifts are quoted from the materials and the labour of assembly —
+            and from the items themselves only if the shop has to buy them.</p>
+    </div>
+    <ol class="how-steps" id="howSteps"></ol>
+</section>
+
+</main>
+
+<footer class="site-foot">
+    <div class="wrap">
+        <div class="foot-grid">
+            <div class="foot-col">
+                <img class="foot-logo" src="assets/logo.png" alt="Sýmpan Universe">
+                <p class="t-callout" style="max-width:34ch">Handcrafted gifts and celestial bouquets for
+                    saying the thing you mean. Every universe is better with you in it.</p>
+            </div>
+            <div class="foot-col">
+                <h4 class="t-title3">Explore</h4>
+                <ul class="t-callout">
+                    <li><a class="link" href="#catalog">Catalogue</a></li>
+                    <li><a class="link" href="#how">How pricing works</a></li>
+                    <li><button class="link link-button" type="button" id="footTrack">Track an order</button></li>
+                </ul>
+            </div>
+            <div class="foot-col">
+                <h4 class="t-title3">Visit</h4>
+                <ul class="t-callout" id="visitList"></ul>
+            </div>
+            <div class="foot-col">
+                <h4 class="t-title3">Message us</h4>
+                <ul class="t-callout" id="contactList"></ul>
+            </div>
+        </div>
+        <div class="foot-bottom t-caption">
+            <span>© <span id="year"></span> Sýmpan Universe. All rights reserved.</span>
+            <span>Orders live in this page's memory only — nothing is stored on your device.</span>
+        </div>
+    </div>
+</footer>
+
+<button class="cart-fab hidden" id="basketFab" type="button">
+    <span id="fabIcon"></span>
+    <span>Cart</span>
+    <span class="fab-total" id="fabCount"></span>
+</button>
+
+</div>
+
+<!-- =====================================================================
+     THE ORDER DESK — reached only at index.html#admin: email, password,
+     then a six-digit code sent to the owner's email
+     ===================================================================== -->
+<div id="adminView" class="hidden">
+
+    <section class="login-screen" id="adminLogin">
+        <form class="login-card panel panel-lift" id="loginForm" novalidate autocomplete="off">
+            <div class="lock" id="lockIcon"></div>
+            <h1 class="t-title1 mb-2">Order desk</h1>
+            <p class="t-callout dim mb-4">Staff sign-in.</p>
+            <label class="field text-start">
+                <span class="field-label">Email</span>
+                <input class="input" type="email" id="loginEmail" autocomplete="username" required>
+            </label>
+            <label class="field text-start">
+                <span class="field-label">Password</span>
+                <input class="input" type="password" id="passcodeInput" autocomplete="current-password" required>
+            </label>
+            <span class="field-error hidden text-start" id="loginError" role="alert"></span>
+            <button class="ui-btn ui-btn-primary ui-btn-block mt-4" type="submit" id="loginSubmit">Continue</button>
+            <a class="ui-btn ui-btn-ghost ui-btn-block mt-2" href="#top">Back to the shop</a>
+        </form>
+
+        <form class="login-card panel panel-lift hidden" id="otpForm" novalidate autocomplete="off">
+            <div class="lock" id="otpIcon"></div>
+            <h1 class="t-title1 mb-2">Check your email</h1>
+            <p class="t-callout dim mb-4" id="otpNote">We sent a six-digit code.</p>
+            <label class="field text-start">
+                <span class="field-label">Sign-in code</span>
+                <input class="input t-mono otp-input" id="otpInput" inputmode="numeric" maxlength="6" autocomplete="one-time-code" required>
+            </label>
+            <p class="notice notice-warn hidden text-start" id="otpDemo"></p>
+            <span class="field-error hidden text-start" id="otpError" role="alert"></span>
+            <button class="ui-btn ui-btn-primary ui-btn-block mt-4" type="submit" id="otpSubmit">Verify and sign in</button>
+            <button class="ui-btn ui-btn-ghost ui-btn-block mt-2" type="button" id="otpResend">Send a new code</button>
+            <button class="ui-btn ui-btn-ghost ui-btn-block" type="button" id="otpBack">Use a different account</button>
+        </form>
+    </section>
+
+    <section class="hidden" id="adminConsole">
+        <header class="app-nav">
+            <div class="wrap nav-inner">
+                <a class="brand" href="#admin" aria-label="Order desk">
+                    <img src="assets/logo.png" alt="">
+                    <span><span class="brand-name">Order desk</span><br><span class="brand-sub">Sýmpan Universe</span></span>
+                </a>
+                <form class="search admin-find flex-fill" id="findForm" role="search">
+                    <span id="findIcon"></span>
+                    <label class="sr-only" for="findInput">Find an order by reference</label>
+                    <input class="input" id="findInput" placeholder="Find order, e.g. SU-215" autocomplete="off">
+                </form>
+                <button class="ui-btn ui-btn-ghost ui-btn-sm" type="button" id="logoutButton">Sign out</button>
+            </div>
+        </header>
+        <div class="wrap">
+            <nav class="admin-tabs chip-row" id="adminTabs" aria-label="Order desk sections"></nav>
+            <div id="adminMain" class="admin-main"></div>
+        </div>
+    </section>
+</div>
+
+<!-- =====================================================================
+     SHEETS
+     ===================================================================== -->
+<section class="sheet sheet-full" id="productSheet" role="dialog" aria-modal="true"
+         aria-labelledby="productSheetTitle" aria-hidden="true">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <header class="sheet-head">
+        <h2 class="t-title2 flex-fill" id="productSheetTitle">Bouquet</h2>
+        <button class="ui-btn-icon" type="button" data-sheet-close aria-label="Close" data-icon="close"></button>
+    </header>
+    <div class="sheet-body" id="productBody"></div>
+    <footer class="sheet-foot" id="productFoot"></footer>
+</section>
+
+<section class="sheet sheet-bottom sheet-side" id="basketSheet" role="dialog" aria-modal="true"
+         aria-labelledby="basketTitle" aria-hidden="true">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <header class="sheet-head">
+        <button class="ui-btn-icon hidden" type="button" id="basketBack" aria-label="Back" data-icon="left"></button>
+        <h2 class="t-title2 flex-fill" id="basketTitle">Your cart</h2>
+        <button class="ui-btn-icon" type="button" data-sheet-close aria-label="Close" data-icon="close"></button>
+    </header>
+    <div class="sheet-body" id="basketBody"></div>
+    <footer class="sheet-foot" id="basketFoot"></footer>
+</section>
+
+<section class="sheet sheet-bottom sheet-side" id="trackSheet" role="dialog" aria-modal="true"
+         aria-labelledby="trackTitle" aria-hidden="true">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <header class="sheet-head">
+        <h2 class="t-title2 flex-fill" id="trackTitle">Track your order</h2>
+        <button class="ui-btn-icon" type="button" data-sheet-close aria-label="Close" data-icon="close"></button>
+    </header>
+    <div class="sheet-body" id="trackBody"></div>
+    <footer class="sheet-foot" id="trackFoot"></footer>
+</section>
+
+<section class="sheet sheet-full" id="doneSheet" role="dialog" aria-modal="true"
+         aria-labelledby="doneTitle" aria-hidden="true">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <header class="sheet-head">
+        <h2 class="t-title2 flex-fill" id="doneTitle">Order placed</h2>
+        <button class="ui-btn-icon" type="button" data-sheet-close aria-label="Close" data-icon="close"></button>
+    </header>
+    <div class="sheet-body" id="doneBody"></div>
+    <footer class="sheet-foot" id="doneFoot"></footer>
+</section>
+
+<section class="sheet sheet-full" id="receiptSheet" role="dialog" aria-modal="true"
+         aria-labelledby="receiptTitle" aria-hidden="true">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <header class="sheet-head">
+        <h2 class="t-title2 flex-fill" id="receiptTitle">Receipt</h2>
+        <button class="ui-btn ui-btn-quiet ui-btn-sm" type="button" id="receiptPrint">Print</button>
+        <button class="ui-btn-icon" type="button" data-sheet-close aria-label="Close" data-icon="close"></button>
+    </header>
+    <div class="sheet-body" id="receiptBody"></div>
+</section>
+
+<section class="sheet sheet-full" id="deskSheet" role="dialog" aria-modal="true"
+         aria-labelledby="deskTitle" aria-hidden="true">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <header class="sheet-head">
+        <h2 class="t-title2 flex-fill" id="deskTitle">Order</h2>
+        <button class="ui-btn-icon" type="button" data-sheet-close aria-label="Close" data-icon="close"></button>
+    </header>
+    <div class="sheet-body" id="deskBody"></div>
+    <footer class="sheet-foot" id="deskFoot"></footer>
+</section>
+
+<section class="sheet sheet-bottom confirm-sheet" id="confirmSheet" role="alertdialog" aria-modal="true"
+         aria-labelledby="confirmTitle" aria-hidden="true">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <header class="sheet-head"><h2 class="t-title2 flex-fill" id="confirmTitle">Are you sure?</h2></header>
+    <div class="sheet-body" id="confirmBody"></div>
+    <footer class="sheet-foot row-center">
+        <button class="ui-btn ui-btn-quiet flex-fill" type="button" data-sheet-close>Keep it</button>
+        <button class="ui-btn ui-btn-rose flex-fill" type="button" id="confirmGo">Confirm</button>
+    </footer>
+</section>
+
+<div id="printArea" class="print-area" aria-hidden="true"></div>
+
+<script src="js/core.js"></script>
+<script src="js/structures.js"></script>
+<script src="js/algorithms.js"></script>
+<script src="js/data.js"></script>
+<script src="js/email-config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/orders.js"></script>
+<script src="js/notify.js"></script>
+<script src="js/editing.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/seed.js"></script>
+<script src="js/mail.js"></script>
+<script src="js/motion.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/receipt.js"></script>
+<script src="js/shop-catalog.js"></script>
+<script src="js/shop-product.js"></script>
+<script src="js/shop-basket.js"></script>
+<script src="js/shop-track.js"></script>
+<script src="js/admin-signin.js"></script>
+<script src="js/admin-desk.js"></script>
+<script src="js/admin-overview.js"></script>
+<script src="js/admin-orders.js"></script>
+<script src="js/admin-products.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

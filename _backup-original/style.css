@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime&family=Playfair+Display:ital,wght@0,400;0,600&display=swap');
+
+:root {
+    --bg-outside: #d4d4d4; 
+    --paper-bg: #fcfcfc;
+    --text-main: #1a1a1a; 
+    --wax-red: #ba2d2d;
+}
+
+body { 
+    background-color: var(--bg-outside); 
+    color: var(--text-main); 
+    font-family: 'Courier Prime', monospace; 
+    background-image: radial-gradient(#bcbcbc 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+h1, h2, h3, h4, h5, .serif-text { 
+    font-family: 'Playfair Display', serif; 
+    font-weight: 600; 
+    letter-spacing: 1px; 
+}
+
+.paper-container {
+    background: var(--paper-bg); 
+    max-width: 1200px; 
+    margin: 40px auto;
+    padding: 40px; 
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2); 
+    position: relative;
+}
+
+/* Torn edges effect */
+.paper-container::before, .paper-container::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 12px;
+    background: inherit;
+}
+.paper-container::before { 
+    top: -6px; 
+    clip-path: polygon(0% 100%, 2% 0%, 4% 100%, 6% 0%, 8% 100%, 10% 0%, 12% 100%, 14% 0%, 16% 100%, 18% 0%, 20% 100%, 22% 0%, 24% 100%, 26% 0%, 28% 100%, 30% 0%, 32% 100%, 34% 0%, 36% 100%, 38% 0%, 40% 100%, 42% 0%, 44% 100%, 46% 0%, 48% 100%, 50% 0%, 52% 100%, 54% 0%, 56% 100%, 58% 0%, 60% 100%, 62% 0%, 64% 100%, 66% 0%, 68% 100%, 70% 0%, 72% 100%, 74% 0%, 76% 100%, 78% 0%, 80% 100%, 82% 0%, 84% 100%, 86% 0%, 88% 100%, 90% 0%, 92% 100%, 94% 0%, 96% 100%, 98% 0%, 100% 100%); 
+}
+.paper-container::after { 
+    bottom: -6px; 
+    clip-path: polygon(0% 0%, 2% 100%, 4% 0%, 6% 100%, 8% 0%, 10% 100%, 12% 0%, 14% 100%, 16% 0%, 18% 100%, 20% 0%, 22% 100%, 24% 0%, 26% 100%, 28% 0%, 30% 100%, 32% 0%, 34% 100%, 36% 0%, 38% 100%, 40% 0%, 42% 100%, 44% 0%, 46% 100%, 48% 0%, 50% 100%, 52% 0%, 54% 100%, 56% 0%, 58% 100%, 60% 0%, 62% 100%, 64% 0%, 66% 100%, 68% 0%, 70% 100%, 72% 0%, 74% 100%, 76% 0%, 78% 100%, 80% 0%, 82% 100%, 84% 0%, 86% 100%, 88% 0%, 90% 100%, 92% 0%, 94% 100%, 96% 0%, 98% 100%, 100% 0%); 
+}
+
+.dashed-divider { border-top: 2px dashed #333; margin: 20px 0; }
+.navbar-brand img { height: 150px; mix-blend-mode: multiply; }
+.nav-link { font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: var(--text-main) !important; }
+
+.btn-typewriter { 
+    background: transparent; border: 2px solid var(--text-main); 
+    color: var(--text-main); border-radius: 0; padding: 8px 12px; 
+    font-weight: bold; text-transform: uppercase; 
+}
+.btn-typewriter:hover { background: var(--text-main); color: var(--paper-bg); }
+.btn-wax { background: var(--wax-red); color: white; border: none; font-weight: bold; }
+.btn-wax:hover { background: #8a1d1d; color: white; }
+
+.card { background: transparent; border: 2px dashed #ccc; border-radius: 0; }
+.img-placeholder { 
+    height: 250px; background-color: #eaeaea; display: flex; 
+    align-items: center; justify-content: center; color: #888; 
+    font-family: 'Inter', sans-serif; font-size: 0.9rem; border-bottom: 2px dashed #ccc; 
+}
+
+.form-control, .form-select { 
+    background: transparent; border: none; border-bottom: 2px dashed var(--text-main); 
+    border-radius: 0; color: var(--text-main); font-family: inherit; 
+}
+.form-control:focus, .form-select:focus { background: transparent; box-shadow: none; border-color: var(--wax-red); }
+
+#customModal { 
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; 
+}
+.modal-paper { background: var(--paper-bg); padding: 30px; width: 90%; max-width: 500px; border: 2px dashed #333; }
+pre { background: #f4f4f4 !important; border: 2px dashed #ccc !important; padding: 15px; color: #333 !important; }
+/* Footer Styles */
+.footer-container {
+    margin-top: 60px;
+    padding-top: 40px;
+    border-top: 2px dashed var(--text-main);
+}
+.footer-container img.footer-logo {
+    height: 80px;
+    mix-blend-mode: multiply;
+}

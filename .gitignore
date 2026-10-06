@@ -1,0 +1,10 @@
+# Local AI-tool state (not part of the project)
+.agents/
+.claude/
+.omc/
+skills-lock.json
+# Editors / OS
+Thumbs.db
+.DS_Store
+node_modules/
+tests/*.tmp.js

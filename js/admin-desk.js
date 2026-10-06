@@ -1,0 +1,308 @@
+/* =========================================================================
+   ORDER DESK — sign-in, tabs and the order lists.
+
+   Reached only at index.html#admin; nothing on the shop links to it.
+   Signing in is in admin-signin.js; the Overview and Outbox are in
+   admin-overview.js.
+
+   Tabs: Overview (by day, month or year) · Quote requests (circular
+   queue, FIFO) · Awaiting payment · In production (min-heap rush lane +
+   circular queue) · Completed (by date, with stack-based undo) · Voided ·
+   Products · Outbox.
+   Depends on ui.js, orders.js, editing.js, receipt.js.
+   ========================================================================= */
+
+var DESK_TABS = [
+    { id: 'overview',   label: 'Overview' },
+    { id: 'quotes',     label: 'Quote requests' },
+    { id: 'payment',    label: 'Awaiting payment' },
+    { id: 'production', label: 'In production' },
+    { id: 'completed',  label: 'Completed' },
+    { id: 'voided',     label: 'Voided' },
+    { id: 'products',   label: 'Products' },
+    { id: 'outbox',     label: 'Outbox' }
+];
+
+/* =========================================================================
+   SHARED CARD PIECES
+   ========================================================================= */
+
+/* Items with every spec, note and reference.  Time O(n) · Space O(n) */
+function deskItemsHtml(order, showPrices) {
+    return '<ul class="order-items">' + renderEach(order.items, function (item) {
+        var type = quoteTypeById(item.quoteType);
+        var money = !showPrices ? '<span class="t-caption dim">' + escapeHtml(itemEstimateText(item)) + '</span>'
+            : '<div class="line-break t-caption"><span>Materials ' + peso(item.materials) + '</span><span>Labour ' + peso(item.labor) +
+              '</span>' + (item.itemExpense > 0 ? '<span>' + escapeHtml(type.expenseLabel || 'Items') + ' ' + peso(item.itemExpense) + '</span>' : '') +
+              '<strong>' + peso(lineTotal(item)) + '</strong></div>';
+        return '<li class="order-item"><div class="order-item-media">' + imageOrEmpty(itemThumb(item), '') + '</div>' +
+            '<div class="order-item-body"><strong>' + escapeHtml(item.productName) + ' × ' + item.quantity + '</strong>' +
+            specPills(itemSpecs(item)) +
+            (item.notes ? '<span class="t-caption">Notes: “' + escapeHtml(item.notes) + '”</span>' : '') +
+            (item.reference ? '<a class="t-caption link" href="' + escapeHtml(item.reference.url) + '" target="_blank" rel="noopener">' +
+             'Reference design: ' + escapeHtml(item.reference.name) + '</a>' : '') + money + '</div></li>';
+    }) + '</ul>';
+}
+
+/* Contact, schedule and delivery.        Time O(1)  · Space O(1) */
+function deskFactsHtml(order) {
+    var f = order.fulfilment, c = order.customer;
+    var feeNote = order.delivery.status === 'estimate' ? ' · courier estimate, confirm in the quotation'
+                : order.delivery.status === 'manual' ? ' · no rate on file, enter it in the quotation'
+                : order.delivery.status === 'confirmed' ? ' · confirmed' : '';
+    return '<dl class="order-facts">' +
+        '<div><dt>Customer</dt><dd>' + escapeHtml(c.name) + '</dd></div>' +
+        '<div><dt>Mobile</dt><dd>' + escapeHtml(c.phone) + (c.handle ? ' · ' + escapeHtml(c.handle) : '') + '</dd></div>' +
+        '<div><dt>Email</dt><dd>' + escapeHtml(c.email || '—') + '</dd></div>' +
+        '<div><dt>' + (f.mode === 'delivery' ? 'Delivery' : 'Pickup') + '</dt><dd>' + escapeHtml(whenText(order)) +
+            (order.rush ? ' · <span class="rose">Rush</span>' : '') + '</dd></div>' +
+        (f.mode === 'delivery' ? '<div><dt>Address</dt><dd>' + escapeHtml(f.address + ', ' + (f.barangay ? f.barangay + ', ' : '') + f.city) + '</dd></div>' : '') +
+        '<div><dt>Fee</dt><dd>' + escapeHtml(order.delivery.label + feeNote) + '</dd></div>' +
+        (order.notes ? '<div><dt>Notes</dt><dd>' + escapeHtml(order.notes) + '</dd></div>' : '') +
+        '<div><dt>Placed</dt><dd>' + escapeHtml(formatStamp(order.createdAt)) + '</dd></div>' +
+    '</dl>';
+}
+
+/* Money line for a card.                 Time O(n) · Space O(n) */
+function deskMoneyHtml(order) {
+    if (order.status === 'requested') return '<span class="t-foot dim">' + escapeHtml(estimateLabel(order)) + '</span>';
+    var parts = '<strong class="t-num">' + peso(orderTotal(order)) + '</strong>';
+    if (order.amountPaid > 0) parts += ' <span class="t-foot dim">· paid ' + peso(order.amountPaid) + '</span>';
+    if (order.status !== 'voided' && order.amountPaid > 0 && orderBalance(order) > 0) {
+        parts += ' <span class="badge badge-amber">Balance ' + peso(orderBalance(order)) + '</span>';
+    }
+    if (orderOverpaid(order) > 0 && order.status !== 'voided') parts += ' <span class="badge">Overpaid ' + peso(orderOverpaid(order)) + '</span>';
+    return parts;
+}
+
+/* Buttons that act on one order.         Time O(1)  · Space O(1) */
+function actButton(act, id, label, tone) {
+    return '<button class="ui-btn ' + (tone || 'ui-btn-quiet') + ' ui-btn-sm" type="button" data-act="' + act + '" data-id="' + id + '">' +
+           escapeHtml(label) + '</button>';
+}
+
+/* The actions a status allows.           Time O(n) · Space O(1) */
+function deskActionsHtml(order) {
+    var id = order.id, out = actButton('open', id, 'Details');
+    if (order.status === 'requested') out += actButton('quote', id, 'Prepare quotation', 'ui-btn-primary');
+    if (order.status === 'quoted') out += actButton('quote', id, 'Revise quotation') + actButton('accept', id, 'Record GCash payment', 'ui-btn-primary');
+    if (owesBalance(order)) out += actButton('balance', id, 'Record balance', 'ui-btn-primary');
+    if (order.status !== 'voided') out += actButton('edit', id, 'Edit order');
+    if (order.status !== 'voided' && order.status !== 'completed') out += actButton('void', id, 'Void', 'ui-btn-danger');
+    return out;
+}
+
+/* A full order card.                     Time O(n) · Space O(n) */
+function deskCardHtml(order, position, isNext, laneNote) {
+    return '<article class="order-card' + (isNext ? ' is-next' : '') + '">' +
+        '<div class="order-card-head">' + (position ? '<span class="pos">' + position + '</span>' : '') +
+        '<div class="flex-fill"><div class="row-between"><strong class="t-mono">' + escapeHtml(order.ref) + '</strong>' + statusBadge(order) + '</div>' +
+        '<span class="t-foot dim">' + escapeHtml(order.customer.name) + (laneNote ? ' · ' + escapeHtml(laneNote) : '') + '</span></div></div>' +
+        '<div class="order-card-grid"><div>' + deskItemsHtml(order, order.status !== 'requested') + '</div><div>' + deskFactsHtml(order) +
+        (order.status === 'voided' ? '<p class="void-line">' + escapeHtml(order.voidReason) + ' · by ' + escapeHtml(order.voidedBy) + ' · ' +
+            escapeHtml(formatStamp(order.voidedAt)) + '</p>' : '') + '</div></div>' +
+        '<div class="order-card-foot"><div class="flex-fill">' + deskMoneyHtml(order) + '</div><div class="desk-actions">' +
+        deskActionsHtml(order) + '</div></div></article>';
+}
+
+/*                                        Time O(1)  · Space O(1) */
+function emptyHtml(glyph, title, text) {
+    return '<div class="empty"><div class="empty-glyph">' + icon(glyph) + '</div><h3 class="t-title3">' + escapeHtml(title) +
+           '</h3><p class="t-callout">' + escapeHtml(text) + '</p></div>';
+}
+
+/* =========================================================================
+   TABS
+   ========================================================================= */
+
+/*                                        Time O(n²) — every queued order and its lines · Space O(n) */
+function quotesHtml() {
+    var list = quoteQueueOrders();
+    if (list.length === 0) return emptyHtml('list', 'No requests waiting', 'Quote requests for money, makeup, sweets, diaper and beer gifts appear here in the order they arrive.');
+    return '<p class="t-foot dim mb-3">Answered first in, first out. Each quotation is pre-filled from your past quotes for the same product, ' +
+        'so most only need checking. A cart of only flowers or picture bouquets never comes here — it is priced and paid at checkout.</p>' +
+        renderEach(list, function (o, i) { return deskCardHtml(o, i + 1, i === 0, ''); });
+}
+
+/*                                        Time O(n²) · Space O(n) */
+function paymentHtml() {
+    var list = awaitingPayment();
+    if (list.length === 0) return emptyHtml('receipt', 'No quotations outstanding', 'Quotations the customer has not paid yet appear here.');
+    return '<p class="t-foot dim mb-3">Unpaid quotations are voided automatically after ' + QUOTE_EXPIRY_DAYS + ' days, and the customer is told by email.</p>' +
+        renderEach(list, function (o) { return deskCardHtml(o, 0, false, 'Quoted ' + formatStamp(o.quotedAt) + ' · expires ' +
+            formatStamp(o.quotedAt + QUOTE_EXPIRY_DAYS * 24 * 3600000)); });
+}
+
+/*                                        Time O(n²) · Space O(n) */
+function productionHtml() {
+    var line = productionLine(), next = nextReleasable(), last = stackPeek(completedStack);
+    var bar = '<div class="desk-bar"><button class="ui-btn ui-btn-primary" type="button" data-act="complete-next"' + (next ? '' : ' disabled') + '>' +
+        icon('check', 18) + ' Mark ready' + (next ? ' · ' + escapeHtml(next.ref) : '') + '</button>' +
+        '<button class="ui-btn ui-btn-quiet" type="button" data-act="undo-complete"' + (last === null ? ' disabled' : '') + '>' + icon('undo', 18) +
+        ' Undo last' + (last !== null ? ' · ' + escapeHtml(orderById(last.id).ref) : '') + '</button></div>' +
+        '<p class="t-foot dim mb-3">Rush orders go first, earliest due date first (min-heap). Standard orders follow in the order they were paid (queue). ' +
+        'An order is released only when fully paid; one still owing keeps its place without holding up the orders behind it. ' +
+        'Marking an order ready emails the customer.</p>';
+    if (line.length === 0) return bar + emptyHtml('box', 'Nothing in production', 'Paid orders join the line here.');
+    if (!next) {
+        bar += '<p class="notice notice-warn">' + icon('alert', 16) + ' Nothing can be released yet: ' +
+            escapeHtml(renderEach(line, function (o) { return o.ref; }, ', ')) + ' still ' + plural(line.length, 'owes', 'owe') +
+            ' a balance. Record a balance payment to release an order.</p>';
+    }
+    return bar + renderEach(line, function (o, i) {
+        return deskCardHtml(o, i + 1, i === 0, o.lane === 'rush' ? 'Rush · due ' + formatDateShort(o.fulfilment.date) : 'Standard');
+    });
+}
+
+/*                                        Time O(n²) · Space O(n) */
+function completedHtml() {
+    var groups = completedByDate();
+    if (groups.length === 0) return emptyHtml('check', 'No completed orders yet', 'Released orders are kept here, grouped by day.');
+    return renderEach(groups, function (g) {
+        return '<section class="day-group"><div class="day-head"><h3 class="t-title3">' + escapeHtml(formatDateLong(g.date)) + '</h3>' +
+            '<span class="t-foot dim">' + g.orders.length + ' ' + plural(g.orders.length, 'order') + ' · ' + peso(g.total) + '</span></div>' +
+            renderEach(g.orders, function (o) {
+                return '<details class="order-fold"><summary><strong class="t-mono">' + escapeHtml(o.ref) + '</strong><span class="flex-fill">' +
+                    escapeHtml(o.customer.name + ' · ' + glue(itemNames(o), ', ')) + '</span><span class="t-num">' + peso(orderTotal(o)) +
+                    '</span><span class="t-caption dim">' + escapeHtml(formatStamp(o.completedAt)) + '</span></summary>' +
+                    deskCardHtml(o, 0, false, 'Completed ' + formatStamp(o.completedAt)) + '</details>';
+            }) + '</section>';
+    });
+}
+
+/* "Rose Bouquet × 2".                    Time O(n) · Space O(n) */
+function itemNames(order) {
+    var out = [];
+    for (var i = 0; i < order.items.length; i++) listAdd(out, order.items[i].productName + ' × ' + order.items[i].quantity);
+    return out;
+}
+
+/*                                        Time O(n²) · Space O(n) */
+function voidedHtml() {
+    var list = voidedOrders();
+    if (list.length === 0) return emptyHtml('trash', 'Nothing voided', 'Cancelled orders are kept here as VOIDED – NON-REFUNDABLE.');
+    return '<p class="t-foot dim mb-3">Cancelled orders are never deleted. Any payment made is retained.</p>' +
+        renderEach(list, function (o) { return deskCardHtml(o, 0, false, ''); });
+}
+
+/* Tab counts.                            Time O(n)  · Space O(n) */
+function tabCount(id) {
+    if (id === 'quotes') return quoteQueue.count;
+    if (id === 'payment') return ordersWithStatus('quoted').length;
+    if (id === 'production') return rushLane.size + standardLane.count;
+    if (id === 'completed') return ordersWithStatus('completed').length;
+    if (id === 'voided') return ordersWithStatus('voided').length;
+    if (id === 'products') return countWhere(products, function (p) { return !p.active; });
+    if (id === 'outbox') return countWhere(outbox, function (m) { return m.status === 'failed'; });
+    return -1;
+}
+
+/*                                        Time O(n²) · Space O(n) */
+function renderDesk() {
+    $('#adminTabs').innerHTML = renderEach(DESK_TABS, function (t) {
+        var count = tabCount(t.id);
+        var note = t.id === 'products' ? (count > 0 ? count + ' off' : '') : t.id === 'outbox' ? (count > 0 ? count + ' failed' : '')
+                 : (count >= 0 ? String(count) : '');
+        return '<button class="chip" type="button" data-tab="' + t.id + '" aria-pressed="' + (deskState.tab === t.id ? 'true' : 'false') + '">' +
+               escapeHtml(t.label) + (note ? ' <span class="chip-count">' + note + '</span>' : '') + '</button>';
+    });
+    var tab = deskState.tab, html;
+    if (tab === 'quotes') html = quotesHtml();
+    else if (tab === 'payment') html = paymentHtml();
+    else if (tab === 'production') html = productionHtml();
+    else if (tab === 'completed') html = completedHtml();
+    else if (tab === 'voided') html = voidedHtml();
+    else if (tab === 'products') html = productsDeskHtml();
+    else if (tab === 'outbox') html = outboxHtml();
+    else html = overviewHtml();
+    $('#adminMain').innerHTML = html;
+}
+
+/* Re-render after any change, here and in the shop behind it.  Time O(n²) · Space O(n) */
+function deskChanged() {
+    renderDesk();
+    refreshShop();
+}
+
+/* =========================================================================
+   VIEW SWITCHING AND EVENTS
+   ========================================================================= */
+
+/*                                        Time O(n²) · Space O(n) */
+function showDesk() {
+    setHidden($('#shopView'), true);
+    setHidden($('#adminView'), false);
+    setHidden($('#adminLogin'), deskState.authed);
+    setHidden($('#adminConsole'), !deskState.authed);
+    document.title = 'Order desk — Sýmpan Universe';
+    if (deskState.authed) renderDesk();
+    else showSignInStage(deskState.stage);
+    window.scrollTo(0, 0);
+}
+
+/* Sign out and take the desk's figures off the page.  Time O(1) · Space O(1) */
+function signOut() {
+    deskState.authed = false;
+    deskState.stage = 'password';
+    deskState.otp = null;
+    $('#adminMain').innerHTML = '';
+    $('#adminTabs').innerHTML = '';
+    location.hash = '#top';
+}
+
+/* Find an order by reference — binary search.  Time O(n²) · Space O(n) */
+function onFind(e) {
+    e.preventDefault();
+    var order = orderByRef($('#findInput').value);
+    if (!order) { toast({ title: 'No order with that reference.', kind: 'warn' }); return; }
+    $('#findInput').value = '';
+    openDeskOrder(order.id);
+}
+
+/* One handler for every data-act button on the desk.  Time O(n²) · Space O(n) */
+function onDeskAction(e, button) {
+    var act = button.getAttribute('data-act'), id = Number(button.getAttribute('data-id'));
+    if (act === 'open') openDeskOrder(id);
+    else if (act === 'quote') openQuoteEditor(id);
+    else if (act === 'edit') openOrderEditor(id);
+    else if (act === 'accept') openDeskPayment(id, 'accept');
+    else if (act === 'balance') openDeskPayment(id, 'balance');
+    else if (act === 'void') confirmDeskVoid(id);
+    else if (act === 'complete-next') {
+        var done = completeNext(Date.now());
+        if (!done.ok) toast({ title: done.error, kind: 'warn' });
+        else toast({ title: done.order.ref + ' is ready — the customer has been emailed', kind: 'success', message: done.skipped.length === 0 ? '' :
+            renderEach(done.skipped, function (o) { return o.ref; }, ', ') + ' still ' + plural(done.skipped.length, 'owes', 'owe') + ' a balance and keeps its place.' });
+        deskChanged();
+    } else if (act === 'undo-complete') {
+        var undone = undoCompletion(Date.now());
+        toast(undone.ok ? { title: undone.order.ref + ' is back in production', kind: 'info' } : { title: undone.error, kind: 'warn' });
+        deskChanged();
+    } else if (act === 'product-edit') openProductEditor(id);
+    else if (act === 'product-toggle') toggleProduct(id);
+}
+
+/*                                        Time O(1)  · Space O(1) */
+function initDesk() {
+    initSignIn();
+    $('#findIcon').innerHTML = icon('search');
+    $('#logoutButton').addEventListener('click', signOut);
+    $('#findForm').addEventListener('submit', onFind);
+    on($('#adminTabs'), 'click', '[data-tab]', function (e, b) {
+        deskState.tab = b.getAttribute('data-tab');
+        renderDesk();
+    });
+    on($('#adminMain'), 'click', '[data-act]', onDeskAction);
+    var main = $('#adminMain');
+    main.addEventListener('click', function (e) {
+        if (e.target.closest('[data-mail-retry]')) {
+            var count = retryFailedMail();
+            toast({ title: count + ' ' + plural(count, 'email') + ' queued again', kind: 'info' });
+            renderDesk();
+            return;
+        }
+        if (deskState.tab === 'overview') onOverviewClick(e);
+    });
+    main.addEventListener('change', function (e) { if (deskState.tab === 'overview') onOverviewInput(e); });
+    initDeskSheet();
+}
