@@ -11,7 +11,7 @@ module.exports = [
 {
     id: 'm08', no: 8, part: 3, title: 'Quotation Desk', structure: 'Circular queue · Insertion sort',
     screens: 'Order desk → "Quote requests" tab, and the quote editor',
-    files: 'js/structures.js (cqEnqueue, cqDequeue, cqGrow) · js/orders.js (leaveQueue, quoteHistory, recentQuotes, pastQuoteFrom, quoteDraft, sendQuote) · js/admin-desk.js · js/admin-orders.js',
+    files: 'js/dsa/circular-queue.js (cqEnqueue, cqDequeue, cqGrow) · js/backend/m08-quotation-desk.js (leaveQueue, quoteHistory, recentQuotes, pastQuoteFrom, quoteDraft, sendQuote) · js/frontend/desk/desk.js · js/frontend/desk/order-sheet.js',
     data: 'quoteQueue — circular queue of order ids { items, head, tail, count, capacity }; orders (past quotations)',
     summary: ['Circular queue · insertion sort of past quotes', 'O(1) enqueue / dequeue · O(n²) draft', 'O(n)'],
     business: [
@@ -41,37 +41,37 @@ module.exports = [
     shots: [['m08-queue', 'Quote requests, first in first out'], ['m08-editor', 'The quote editor, pre-filled from past quotes']],
     trace: 'queue', traceTitle: 'the quote queue and the pre-fill',
     walk: [
-        { file: 'js/structures.js', fn: 'cqEnqueue', about: 'Joins the back of the queue.', steps: [
+        { file: 'js/dsa/circular-queue.js', fn: 'cqEnqueue', about: 'Joins the back of the queue.', steps: [
             { at: 'if (queue.count === queue.capacity) cqGrow(queue);', text: 'Full? Double the buffer first.' },
             { at: 'queue.items[queue.tail] = value;', text: 'Write at the tail…' },
             { at: 'queue.tail = (queue.tail + 1) % queue.capacity;', text: '…and move the tail on, wrapping around with modulo.' }
         ] },
-        { file: 'js/structures.js', fn: 'cqDequeue', about: 'Leaves from the front.', steps: [
+        { file: 'js/dsa/circular-queue.js', fn: 'cqDequeue', about: 'Leaves from the front.', steps: [
             { at: 'var value = queue.items[queue.head];', text: 'Read the front.' },
             { at: 'queue.head = (queue.head + 1) % queue.capacity;', text: 'Move the head on, wrapping around.' }
         ] },
-        { file: 'js/structures.js', fn: 'cqGrow', about: 'Doubles a full buffer.', steps: [
+        { file: 'js/dsa/circular-queue.js', fn: 'cqGrow', about: 'Doubles a full buffer.', steps: [
             { at: 'for (var k = 0; k < queue.count; k++) bigger[k] = queue.items[(queue.head + k) % queue.capacity];', text: 'Copy the items in queue order, so the head lands at slot 0.' }
         ] },
-        { file: 'js/orders.js', fn: 'leaveQueue', about: 'Takes an id out when it is quoted or voided.', steps: [
+        { file: 'js/backend/m08-quotation-desk.js', fn: 'leaveQueue', about: 'Takes an id out when it is quoted or voided.', steps: [
             { at: 'if (cqFront(queue) === id) return cqDequeue(queue) === id;', text: 'Normally it is at the front: O(1) dequeue.' },
             { at: 'return cqRemove(queue, id);', text: 'Otherwise remove it from the middle, keeping the order.' }
         ] },
-        { file: 'js/orders.js', fn: 'quoteHistory', about: 'Every quoted line the owner has priced, newest first.', steps: [
+        { file: 'js/backend/m08-quotation-desk.js', fn: 'quoteHistory', about: 'Every quoted line the owner has priced, newest first.', steps: [
             { at: "if (order.id === ignoreId || order.quotedAt === 0 || order.status === 'requested') continue;", text: 'Only orders the owner has already quoted.' },
             { at: 'var base = past.materials - past.estimate;', text: 'Per piece, with the add-ons taken out.' },
             { at: 'return insertionSort(backwards(seen), function (a, b) { return b.stamp - a.stamp || a.seq - b.seq; });', text: 'Read back to front, then insertion sort newest first; lines quoted at the same moment keep their order.' }
         ] },
-        { file: 'js/orders.js', fn: 'recentQuotes', about: 'The five most recent quotes for one product.', steps: [
+        { file: 'js/backend/m08-quotation-desk.js', fn: 'recentQuotes', about: 'The five most recent quotes for one product.', steps: [
             { at: 'for (var h = 0; h < history.length && out.length < 5; h++)', text: 'Walk the history from the newest, stopping after five.' },
             { at: 'if (line.productId === item.productId && (!sameSize || line.size === item.size)) listAdd(out, line);', text: 'Keep lines of the same product (and size).' }
         ] },
-        { file: 'js/orders.js', fn: 'pastQuoteFrom', about: 'What the owner charged before.', steps: [
+        { file: 'js/backend/m08-quotation-desk.js', fn: 'pastQuoteFrom', about: 'What the owner charged before.', steps: [
             { at: 'var recent = recentQuotes(history, item, true), sameSize = recent.length > 0;', text: 'The same size first…' },
             { at: 'if (!sameSize) recent = recentQuotes(history, item, false);', text: '…or any size if there is none.' },
             { at: 'materials: roundMoney(sumRecursive(recent', text: 'Average them.' }
         ] },
-        { file: 'js/orders.js', fn: 'sendQuote', about: 'Sends the quotation.', steps: [
+        { file: 'js/backend/m08-quotation-desk.js', fn: 'sendQuote', about: 'Sends the quotation.', steps: [
             { at: 'var errors = validateQuote(order, draft);', text: 'Every line must be priced; a courier fee must be set.' },
             { at: 'if (!revising) leaveQueue(quoteQueue, order.id);', text: 'Leave the queue.' },
             { at: 'emailQuoteReady(order, stamp);', text: 'Email the customer that it is approved.' }
@@ -83,7 +83,7 @@ module.exports = [
 {
     id: 'm09', no: 9, part: 3, title: 'Payment, Receipts & Email', structure: 'Circular queue (outgoing mail)',
     screens: 'Checkout step 3 (payment), the receipt, Track order (paying a quotation), Order desk → Outbox',
-    files: 'js/orders.js (gcashProblem, receiptWithRef, placeOrder, acceptQuote, issueReceipt) · js/notify.js (queueEmail) · js/mail.js (drainMail) · js/email-config.js',
+    files: 'js/backend/m09-payment-receipts-email.js (gcashProblem, receiptWithRef, acceptQuote, issueReceipt, queueEmail, drainMail) · js/backend/m07-checkout-delivery.js (placeOrder) · js/data/email-config.js',
     data: 'receipts — array of snapshots; outbox — array of emails; mailQueue — circular queue of outbox positions; EMAIL_CONFIG',
     summary: ['Circular queue (mail) · linear search for used references', 'O(1) per email · O(n) reference check', 'O(n)'],
     business: [
@@ -113,34 +113,34 @@ module.exports = [
     shots: [['m09-pay', 'Checkout: the two GCash payments'], ['m09-receipt', 'The receipt'], ['m09-outbox', 'The Outbox']],
     trace: 'payment', traceTitle: 'a payment, its receipt and its email',
     walk: [
-        { file: 'js/orders.js', fn: 'gcashProblem', about: 'The checks every payment shares.', steps: [
+        { file: 'js/backend/m09-payment-receipts-email.js', fn: 'gcashProblem', about: 'The checks every payment shares.', steps: [
             { at: "if (!isValidGcashRef(gcashRef)) return 'Enter the 13-digit GCash reference number.';", text: 'Exactly 13 digits.' },
             { at: 'var used = receiptWithRef(gcashRef);', text: 'Not already used on a receipt.' }
         ] },
-        { file: 'js/orders.js', fn: 'placeOrder', about: 'Checkout for a price-list cart: place and pay in one step.', steps: [
+        { file: 'js/backend/m07-checkout-delivery.js', fn: 'placeOrder', about: 'Checkout for a price-list cart: place and pay in one step.', steps: [
             { at: 'var errors = validateRequest(form, items, isoFromStamp(stamp));', text: 'Check the form first.' },
             { at: 'var problem = gcashProblem(gcashRef);', text: 'Check the payment before anything is created.' },
             { at: 'var made = submitRequest(form, stamp);', text: 'Create the order (priced automatically).' },
             { at: 'var paid = acceptQuote(made.order.id, methodId, gcashRef, stamp);', text: 'Take the payment.' },
             { at: "voidOrder(made.order.id, 'Payment could not be recorded'", text: 'Never leave a half-made order.' }
         ] },
-        { file: 'js/orders.js', fn: 'acceptQuote', about: 'Records the payment.', steps: [
+        { file: 'js/backend/m09-payment-receipts-email.js', fn: 'acceptQuote', about: 'Records the payment.', steps: [
             { at: 'if (stamp - order.quotedAt > QUOTE_EXPIRY_DAYS', text: 'An expired quotation cannot be paid.' },
             { at: 'order.amountPaid = method.share === 1 ? total : roundMoney(total * method.share);', text: 'Full or half of the total.' },
             { at: 'enterProduction(order);', text: 'Into the production line (module 10).' },
             { at: 'var receipt = issueReceipt(order', text: 'Issue the receipt…' },
             { at: 'emailOrderConfirmed(order, receipt, stamp);', text: '…and the confirmation email.' }
         ] },
-        { file: 'js/orders.js', fn: 'issueReceipt', about: 'Snapshots the order into a receipt.', steps: [
+        { file: 'js/backend/m09-payment-receipts-email.js', fn: 'issueReceipt', about: 'Snapshots the order into a receipt.', steps: [
             { at: "no: 'OR-' + leftPad(counters.receipt, 4, '0'),", text: 'The next receipt number.' },
             { at: 'balance: orderBalance(order), status: paymentStatus(order)', text: 'Paid to date, balance and status, as they are now.' }
         ] },
-        { file: 'js/notify.js', fn: 'queueEmail', about: 'Writes an email and queues it.', steps: [
+        { file: 'js/backend/m09-payment-receipts-email.js', fn: 'queueEmail', about: 'Writes an email and queues it.', steps: [
             { at: "if (!mailEnabled || !isValidEmail(to) || isDemoAddress(to)) return null;", text: 'Never email the demo customers (exactly example.com).' },
             { at: 'listAdd(outbox, record);', text: 'Keep it in the outbox…' },
             { at: 'cqEnqueue(mailQueue, outbox.length - 1);', text: '…and queue its position for sending.' }
         ] },
-        { file: 'js/mail.js', fn: 'drainMail', about: 'Sends the queue, one at a time.', steps: [
+        { file: 'js/backend/m09-payment-receipts-email.js', fn: 'drainMail', about: 'Sends the queue, one at a time.', steps: [
             { at: 'var record = outbox[cqDequeue(mailQueue)];', text: 'Take the front of the queue.' },
             { at: "record.status = 'simulated';", text: 'EmailJS not set up: keep it, marked "not sent".' },
             { at: 'fetch(EMAILJS_URL, {', text: 'Otherwise post it to EmailJS.' },
@@ -153,7 +153,7 @@ module.exports = [
 {
     id: 'm10', no: 10, part: 4, title: 'Production & Tracking', structure: 'Min-heap · Circular queue · Binary search',
     screens: 'Order desk → "In production" tab, "Mark ready" and "Add tracking"; Track order on the shop',
-    files: 'js/structures.js (heapInsert, heapSiftUp, heapExtractMin, heapCompare) · js/production.js (enterProduction, productionLine, completeNext) · js/orders.js (orderById, customerLookup) · js/algorithms.js (binarySearch) · js/tracking.js (setCourierTracking, trackingLinkProblem)',
+    files: 'js/dsa/min-heap.js (heapInsert, heapSiftUp, heapExtractMin, heapCompare) · js/backend/m10-production-tracking.js (enterProduction, productionLine, completeNext, customerLookup, setCourierTracking, trackingLinkProblem) · js/backend/orders.js (orderById) · js/dsa/searching.js (binarySearch)',
     data: 'rushLane — min-heap keyed (due date, arrival); standardLane — circular queue; orders — array sorted by order number; order.courierTracking — { courier, number, link }',
     summary: ['Min-heap · circular queue · binary search', 'O(log n) heap · O(1) queue · O(log n) find', 'O(n)'],
     business: [
@@ -187,48 +187,48 @@ module.exports = [
             ['m10-parcel', 'The customer follows the parcel']],
     trace: 'heap', traceTitle: 'the rush heap and the order search',
     walk: [
-        { file: 'js/structures.js', fn: 'heapInsert', about: 'Adds an order to the rush lane.', steps: [
+        { file: 'js/dsa/min-heap.js', fn: 'heapInsert', about: 'Adds an order to the rush lane.', steps: [
             { at: 'heap.items[heap.size] = { value: value, priority', text: 'Put it at the end of the array (the next leaf).' },
             { at: 'heapSiftUp(heap, heap.size - 1);', text: 'Sift it up while it beats its parent.' }
         ] },
-        { file: 'js/structures.js', fn: 'heapSiftUp', about: 'Restores the heap upward.', steps: [
+        { file: 'js/dsa/min-heap.js', fn: 'heapSiftUp', about: 'Restores the heap upward.', steps: [
             { at: 'var parent = Math.floor((child - 1) / 2);', text: 'The parent of index i is (i − 1) ÷ 2.' },
             { at: 'if (heapCompare(heap.items[child], heap.items[parent]) >= 0) break;', text: 'Stop once the parent is not later.' },
             { at: 'heapSwap(heap, child, parent);', text: 'Otherwise swap and continue upward.' }
         ] },
-        { file: 'js/structures.js', fn: 'heapExtractMin', about: 'Removes the earliest-due order.', steps: [
+        { file: 'js/dsa/min-heap.js', fn: 'heapExtractMin', about: 'Removes the earliest-due order.', steps: [
             { at: 'var top = heap.items[0];', text: 'The minimum is always at the root.' },
             { at: 'heap.items[0] = heap.items[heap.size];', text: 'Move the last leaf to the root…' },
             { at: 'if (heap.size > 0) heapSiftDown(heap, 0);', text: '…and sink it to its place.' }
         ] },
-        { file: 'js/structures.js', fn: 'heapCompare', about: 'Which order goes first.', steps: [
+        { file: 'js/dsa/min-heap.js', fn: 'heapCompare', about: 'Which order goes first.', steps: [
             { at: 'if (a.priority !== b.priority) return a.priority - b.priority;', text: 'Earlier due date first…' },
             { at: 'return a.seq - b.seq;', text: '…then whoever paid first.' }
         ] },
-        { file: 'js/production.js', fn: 'completeNext', about: '"Mark ready".', steps: [
+        { file: 'js/backend/m10-production-tracking.js', fn: 'completeNext', about: '"Mark ready".', steps: [
             { at: 'var order = nextReleasable();', text: 'The first fully paid order in line.' },
             { at: 'if (heapPeek(rushLane) === order.id) heapExtractMin(rushLane);', text: 'Rush: usually the heap minimum.' },
             { at: 'leaveQueue(standardLane, order.id);', text: 'Standard: usually the queue front.' },
             { at: 'stackPush(completedStack, { id: order.id, position: position });', text: 'Remember it for undo (module 11).' },
             { at: 'emailOrderReady(order, stamp);', text: 'Email "ready for pickup / on its way".' }
         ] },
-        { file: 'js/algorithms.js', fn: 'binarySearch', about: 'Finds an order by number.', steps: [
+        { file: 'js/dsa/searching.js', fn: 'binarySearch', about: 'Finds an order by number.', steps: [
             { at: 'var mid = Math.floor((low + high) / 2);', text: 'Look at the middle.' },
             { at: 'if (key === target) return mid;', text: 'Found.' },
             { at: 'if (key < target) low = mid + 1;', text: 'Too small: search the right half…' },
             { at: 'else high = mid - 1;', text: '…too big: search the left half.' }
         ] },
-        { file: 'js/orders.js', fn: 'customerLookup', about: 'Shows an order only to its customer.', steps: [
+        { file: 'js/backend/m10-production-tracking.js', fn: 'customerLookup', about: 'Shows an order only to its customer.', steps: [
             { at: 'var order = orderByRef(ref);', text: 'Binary search by number.' },
             { at: 'return byEmail || byPhone ? order : null;', text: 'Only if the mobile number or email matches.' }
         ] },
-        { file: 'js/tracking.js', fn: 'trackingLinkProblem', about: 'Is a tracking link safe to show the customer?', steps: [
+        { file: 'js/backend/m10-production-tracking.js', fn: 'trackingLinkProblem', about: 'Is a tracking link safe to show the customer?', steps: [
             { at: "if (!beginsWith(link, prefix)) return 'The tracking link must start with https://';", text: 'Only https:// — never javascript: or another scheme.' },
             { at: "if (isSpace(c) || c === ", text: 'One pass refuses spaces, quotes and angle brackets.' },
             { at: "if (!isLetter(h) && !isDigit(h) && h !== '-' && h !== '.')", text: 'The site name may hold only letters, digits, hyphens and dots — so no "user@" part can disguise it.' },
             { at: 'if (host.length < 4 || dots === 0', text: 'It must look like a real site name.' }
         ] },
-        { file: 'js/tracking.js', fn: 'setCourierTracking', about: 'Attaches the courier’s tracking to an order.', steps: [
+        { file: 'js/backend/m10-production-tracking.js', fn: 'setCourierTracking', about: 'Attaches the courier’s tracking to an order.', steps: [
             { at: 'if (!canAttachTracking(order)) {', text: 'Only courier deliveries marked ready.' },
             { at: 'var checked = checkTracking(draft);', text: 'Check the number and the link.' },
             { at: 'order.courierTracking = { courier: t.courier, number: t.number, link: t.link, stamp: stamp };', text: 'Attach it to the order…' },
@@ -242,7 +242,7 @@ module.exports = [
 {
     id: 'm11', no: 11, part: 4, title: 'Order Records', structure: 'Stack · Insertion sort',
     screens: 'Order desk → "Completed" and "Voided" tabs; "Undo last" in production',
-    files: 'js/structures.js (stackPush, stackPop) · js/production.js (completeNext, undoCompletion, completedByDate, voidOrder, expireQuotes)',
+    files: 'js/dsa/stack.js (stackPush, stackPop) · js/backend/m10-production-tracking.js (completeNext) · js/backend/m11-order-records.js (undoCompletion, completedByDate, voidOrder, expireQuotes)',
     data: 'completedStack — stack of { id, position }; orders (completion and void times, reasons)',
     summary: ['Stack (undo) · insertion sort by date', 'O(1) push / pop · O(n) sort when nearly in order', 'O(n)'],
     business: [
@@ -272,33 +272,33 @@ module.exports = [
     shots: [['m11-completed', 'Completed orders grouped by day'], ['m11-voided', 'Voided orders kept on record']],
     trace: 'stack', traceTitle: 'undo and the records by date',
     walk: [
-        { file: 'js/structures.js', fn: 'stackPush', about: 'Pushes onto the stack.', steps: [
+        { file: 'js/dsa/stack.js', fn: 'stackPush', about: 'Pushes onto the stack.', steps: [
             { at: 'stack.top++;', text: 'Move the top up one…' },
             { at: 'stack.items[stack.top] = value;', text: '…and store the value there.' }
         ] },
-        { file: 'js/structures.js', fn: 'stackPop', about: 'Pops the top.', steps: [
+        { file: 'js/dsa/stack.js', fn: 'stackPop', about: 'Pops the top.', steps: [
             { at: 'if (stack.top === NIL) return null;', text: 'Empty: nothing to undo.' },
             { at: 'var value = stack.items[stack.top];', text: 'Take the top value…' },
             { at: 'stack.top--;', text: '…and move the top down.' }
         ] },
-        { file: 'js/production.js', fn: 'undoCompletion', about: 'Undo the last "Mark ready".', steps: [
+        { file: 'js/backend/m11-order-records.js', fn: 'undoCompletion', about: 'Undo the last "Mark ready".', steps: [
             { at: 'var entry = stackPop(completedStack);', text: 'The most recent completion.' },
             { at: 'heapInsert(rushLane, order.id, dueKey(order), order.laneSeq);', text: 'Rush: back in the heap with its original key.' },
             { at: 'if (entry.position <= 0) cqRequeueFront(standardLane, order.id);', text: 'Standard: back at the front…' },
             { at: 'else cqInsertAt(standardLane, entry.position, order.id);', text: '…or at its old place if it was released from behind an order still owing.' }
         ] },
-        { file: 'js/production.js', fn: 'completedByDate', about: 'Completed orders by day.', steps: [
+        { file: 'js/backend/m11-order-records.js', fn: 'completedByDate', about: 'Completed orders by day.', steps: [
             { at: "var sorted = insertionSort(backwards(ordersWithStatus('completed')), function (a, b) { return b.completedAt - a.completedAt || a.id - b.id; });", text: 'Read back to front, then insertion sort newest first — nearly in order already.' },
             { at: 'if (!last || last.date !== day) {', text: 'A new day starts a new group…' },
             { at: 'last.total = roundMoney(last.total + orderTotal(sorted[i]));', text: '…and the day total grows.' }
         ] },
-        { file: 'js/production.js', fn: 'voidOrder', about: 'Cancels, but keeps the record.', steps: [
+        { file: 'js/backend/m11-order-records.js', fn: 'voidOrder', about: 'Cancels, but keeps the record.', steps: [
             { at: 'if (order.status === \'requested\') leaveQueue(quoteQueue, order.id);', text: 'Leave the quote queue…' },
             { at: 'if (order.status === \'paid\') leaveProduction(order);', text: '…or the production line.' },
             { at: "order.status = 'voided';", text: 'Marked VOIDED – NON-REFUNDABLE; payments are retained.' },
             { at: 'emailOrderVoided(order, stamp);', text: 'Tell the customer.' }
         ] },
-        { file: 'js/production.js', fn: 'expireQuotes', about: 'The automatic clean-up.', steps: [
+        { file: 'js/backend/m11-order-records.js', fn: 'expireQuotes', about: 'The automatic clean-up.', steps: [
             { at: "var stale = keepWhere(orders, function (o) { return o.status === 'quoted' && now - o.quotedAt > limit; });", text: 'Quotations unpaid for more than three days…' },
             { at: "voidOrder(stale[i].id, 'Quotation expired", text: '…are voided by "System".' }
         ] }
@@ -309,7 +309,7 @@ module.exports = [
 {
     id: 'm12', no: 12, part: 4, title: 'Order Desk & Accounts', structure: 'Credentials array · Hash table · Bucketing by date',
     screens: 'index.html#admin — sign-in, the six-digit code, the Overview (daily, monthly, yearly), Accounts',
-    files: 'js/accounts.js (staffAccounts, accountByEmail, passwordHash, checkPassword, addStaffAccount) · js/admin-signin.js (deskSignIn, issueOtp, verifyOtp) · js/reports.js (bucketOf, tallyPeriods, periodReport) · js/admin-overview.js · js/admin-account.js',
+    files: 'js/backend/state.js (staffAccounts) · js/backend/m12-order-desk.js (accountByEmail, passwordHash, checkPassword, addStaffAccount, deskSignIn, issueOtp, verifyOtp, bucketOf, tallyPeriods, periodReport) · js/frontend/desk/overview.js · js/frontend/desk/account.js',
     data: 'staffAccounts — array of { id, name, email, role, salt, passHash, active } in id order; staffEmailIndex — hash table email → id; failedSignIns (pauses); deskState (the code’s hash); orders and receipts',
     summary: ['Credentials array + hash index · salted hash compare · one-pass bucketing by date', 'O(n) sign-in · O(n²) report', 'O(n)'],
     business: [
@@ -346,53 +346,53 @@ module.exports = [
     shots: [['m12-login', 'Step 1: email and password'], ['m12-code', 'Step 2: the six-digit code'], ['m12-overview', 'The Overview, monthly'], ['m12-accounts', 'Accounts: the credentials array']],
     trace: 'desk', traceTitle: 'the accounts, the sign-in and the Overview',
     walk: [
-        { file: 'js/accounts.js', fn: 'passwordHash', about: 'The stored form of a password.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'passwordHash', about: 'The stored form of a password.', steps: [
             { at: "var h = fnv1a(salt + '|' + p);", text: 'Hash the account’s salt with the password…' },
             { at: 'for (var r = 1; r < PASSWORD_ROUNDS; r++)', text: '…and again, 200 rounds in all.' }
         ] },
-        { file: 'js/accounts.js', fn: 'accountByEmail', about: 'Finds an account from the email typed.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'accountByEmail', about: 'Finds an account from the email typed.', steps: [
             { at: 'var id = hashGet(staffEmailIndex, accountEmailKey(email));', text: 'The email’s bucket gives the account id: O(1) on average…' },
             { at: 'return id === null ? null : accountById(id);', text: '…then binary search on the id-ordered array.' }
         ] },
-        { file: 'js/accounts.js', fn: 'accountById', about: 'Binary search on the credentials array.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'accountById', about: 'Binary search on the credentials array.', steps: [
             { at: 'var at = binarySearch(staffAccounts, Number(id), function (a) { return a.id; });', text: 'The array is in id order, so O(log n).' }
         ] },
-        { file: 'js/admin-signin.js', fn: 'deskSignIn', about: 'Step 1: email and password.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'deskSignIn', about: 'Step 1: email and password.', steps: [
             { at: 'var guard = signInGuard(email), who = typedEmail(email);', text: 'This email’s sign-in record (module 13); the log keeps the email typed — never other text.' },
             { at: 'if (now < guard.lockedUntil) {', text: '…paused? Say how long.' },
             { at: 'var account = accountByEmail(email);', text: 'Find the account.' },
             { at: 'if (account && account.active && checkPassword(account, password)) {', text: 'Active, and the salted hashes match: on to the code.' },
             { at: 'guard.lockedUntil = now + ADMIN_LOCK_MS;', text: 'Five misses in a row pause this email for 30 seconds.' }
         ] },
-        { file: 'js/admin-signin.js', fn: 'issueOtp', about: 'Makes a code.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'issueOtp', about: 'Makes a code.', steps: [
             { at: 'var code = otpCode(), account = accountById(deskState.pendingId);', text: 'Six random digits from the browser’s secure random source…' },
             { at: 'if (account) noteCodeSent(account.email, now);', text: '…counted against the address’s codes for this hour.' },
             { at: 'deskState.otp = { hash: fnv1a(code), expires: now + OTP_LIFETIME_MS, tries: 0, sentAt: now };', text: 'Keep only its hash, its expiry and a try counter.' }
         ] },
-        { file: 'js/admin-signin.js', fn: 'verifyOtp', about: 'Step 2: the code.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'verifyOtp', about: 'Step 2: the code.', steps: [
             { at: 'if (now > otp.expires) {', text: 'Expired after five minutes.' },
             { at: 'if (fnv1a(digitsOnly(code)) === otp.hash', text: 'Right code…' },
             { at: 'deskUserId = account.id;', text: '…and this account is the person signed in.' },
             { at: 'otp.tries++;', text: 'Wrong code: one try fewer (three in all).' }
         ] },
-        { file: 'js/accounts.js', fn: 'addStaffAccount', about: 'An owner adds a person.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'addStaffAccount', about: 'An owner adds a person.', steps: [
             { at: "if (!isOwner(by)) return", text: 'Owners only.' },
             { at: 'if (hashHas(staffEmailIndex, email))', text: 'One account per email.' },
             { at: 'var last = staffAccounts.length > 0 ? staffAccounts[staffAccounts.length - 1].id : 0;', text: 'The next id…' },
             { at: 'listAdd(staffAccounts, account);', text: '…appended: the array stays in id order.' },
             { at: 'hashPut(staffEmailIndex, email, account.id);', text: 'Index the email for sign-in.' }
         ] },
-        { file: 'js/reports.js', fn: 'bucketOf', about: 'Which row a moment belongs to.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'bucketOf', about: 'Which row a moment belongs to.', steps: [
             { at: 'if (!beginsWith(iso, key)) return -1;', text: 'Outside the period: no row.' },
             { at: "if (part === 'day') return readNumber(iso, 8, 10) - 1;", text: 'Month view: the day of the month is the row.' },
             { at: "if (part === 'month') return readNumber(iso, 5, 7) - 1;", text: 'Year view: the month is the row.' }
         ] },
-        { file: 'js/reports.js', fn: 'tallyPeriods', about: 'One pass fills every row.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'tallyPeriods', about: 'One pass fills every row.', steps: [
             { at: 'var order = orders[o], at = bucketOf(order.createdAt, key, part);', text: 'Each order goes straight to its row…' },
             { at: 't.units += sumRecursive(order.items', text: '…adding its pieces if it was paid.' },
             { at: 'at = bucketOf(receipts[r].stamp, key, part);', text: 'Money collected: each receipt to its row.' }
         ] },
-        { file: 'js/reports.js', fn: 'periodReport', about: 'The whole Overview for a period.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'periodReport', about: 'The whole Overview for a period.', steps: [
             { at: "part = 'month';", text: 'A year: twelve month rows…' },
             { at: "part = 'day';", text: '…a month: one row per day.' },
             { at: 'tallyPeriods(buckets, key, part);', text: 'One pass over the orders and receipts fills them all.' },
@@ -405,7 +405,7 @@ module.exports = [
 {
     id: 'm13', no: 13, part: 4, title: 'Security & Audit Logs', structure: 'Append-only log · Hash table',
     screens: 'Order desk → Logs tab; "Forgot password?" on the sign-in card',
-    files: 'js/audit.js (logEvent, logEntries, recentSecurityCounts, signInGuard, noteFailedSignIn) · js/admin-reset.js (startPasswordReset, completePasswordReset) · js/accounts.js (passwordProblem, setAccountPassword) · js/admin-signin.js · js/admin-logs.js',
+    files: 'js/backend/m13-security-logs.js (logEvent, logEntries, recentSecurityCounts, signInGuard, noteFailedSignIn, startPasswordReset, completePasswordReset) · js/backend/m12-order-desk.js (passwordProblem, setAccountPassword) · js/frontend/desk/sign-in.js · js/frontend/desk/logs.js',
     data: 'auditLog — append-only array of { id, stamp, kind, code, level, actor, action, detail, ref }; failedSignIns — hash table email → { count, streak, lockedUntil }; each account’s salted password hash and the reset code’s hash',
     summary: ['Append-only log · hash table · linear search', 'O(1) append · O(n) summary · O(n²) search', 'O(n)'],
     business: [
@@ -452,47 +452,47 @@ module.exports = [
     shots: [['m13-logs', 'The Logs tab: the last 24 hours and the newest entries'], ['m13-reset', 'Password reset: the code and a new password']],
     trace: 'logs', traceTitle: 'the log, the summary and a password reset',
     walk: [
-        { file: 'js/audit.js', fn: 'logEvent', about: 'Appends one entry to the log.', steps: [
+        { file: 'js/backend/m13-security-logs.js', fn: 'logEvent', about: 'Appends one entry to the log.', steps: [
             { at: 'id: counters.log, stamp: stamp, kind: e.kind', text: 'Build the entry with the next number…' },
             { at: 'listAdd(auditLog, entry);', text: '…and add it at the end: O(1), and the log stays in time order.' }
         ] },
-        { file: 'js/orders.js', fn: 'addHistory', about: 'Every order step lands in two places.', steps: [
+        { file: 'js/backend/orders.js', fn: 'addHistory', about: 'Every order step lands in two places.', steps: [
             { at: 'listAdd(order.history, { stamp: stamp, text: text });', text: 'The order’s own history…' },
             { at: "logAudit(stamp, actor || 'System', text, order.ref, detail, level);", text: '…and the audit log, with who did it.' }
         ] },
-        { file: 'js/audit.js', fn: 'codeBudget', about: 'How many codes an address was sent this hour.', steps: [
+        { file: 'js/backend/m13-security-logs.js', fn: 'codeBudget', about: 'How many codes an address was sent this hour.', steps: [
             { at: 'var row = hashGet(codeSends, key);', text: 'The address’s row, by its hash…' },
             { at: 'if (now - row.since >= CODE_SEND_WINDOW_MS) { row.since = now; row.count = 0; }', text: '…starting a fresh count once the hour is over.' }
         ] },
-        { file: 'js/audit.js', fn: 'signInGuard', about: 'The sign-in record for an email.', steps: [
+        { file: 'js/backend/m13-security-logs.js', fn: 'signInGuard', about: 'The sign-in record for an email.', steps: [
             { at: 'var row = hashGet(failedSignIns, key);', text: 'Find the email’s row by its hash…' },
             { at: 'row = { email: key, count: 0, streak: 0, lockedUntil: 0, last: 0 };', text: '…or make it the first time the email is typed.' }
         ] },
-        { file: 'js/audit.js', fn: 'noteFailedSignIn', about: 'Counts a wrong password against the email typed.', steps: [
+        { file: 'js/backend/m13-security-logs.js', fn: 'noteFailedSignIn', about: 'Counts a wrong password against the email typed.', steps: [
             { at: 'row.count++;', text: 'One more in all…' },
             { at: 'row.streak++;', text: '…and one more in a row (a right password resets it).' }
         ] },
-        { file: 'js/audit.js', fn: 'logEntries', about: 'The list on the Logs tab.', steps: [
+        { file: 'js/backend/m13-security-logs.js', fn: 'logEntries', about: 'The list on the Logs tab.', steps: [
             { at: 'var newest = backwards(auditLog);', text: 'Newest first: read the time-ordered log from the back.' },
             { at: '? keepWhere(newest, function (e) { return e.kind === kind; })', text: 'Keep one kind, if one was picked.' },
             { at: 'return linearSearch(ofKind, query, logText);', text: 'Then the search words: linear search with naive string matching.' }
         ] },
-        { file: 'js/audit.js', fn: 'recentSecurityCounts', about: 'The 24-hour figures.', steps: [
+        { file: 'js/backend/m13-security-logs.js', fn: 'recentSecurityCounts', about: 'The 24-hour figures.', steps: [
             { at: 'for (var i = auditLog.length - 1; i >= 0 && now - auditLog[i].stamp <= DAY_MS; i--)', text: 'Walk back from the newest entry; stop at the first one older than a day.' },
             { at: "if (e.code === 'password-wrong' || e.code === 'locked-try' || e.code === 'current-wrong') c.failedPasswords++;", text: 'Count each event by its fixed code, not its wording.' }
         ] },
-        { file: 'js/admin-signin.js', fn: 'deskSignIn', about: 'Every attempt is logged.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'deskSignIn', about: 'Every attempt is logged.', steps: [
             { at: "logSecurity(now, 'password-ok', 'info', who", text: 'A right password: on to the code step.' },
             { at: 'noteFailedSignIn(email, now);', text: 'A wrong one counts against the email typed…' },
             { at: "logSecurity(now, 'locked', 'alert', who", text: '…and the fifth in a row pauses that email, logged as an alert.' }
         ] },
-        { file: 'js/admin-reset.js', fn: 'startPasswordReset', about: 'Step 1 of a reset.', steps: [
+        { file: 'js/backend/m13-security-logs.js', fn: 'startPasswordReset', about: 'Step 1 of a reset.', steps: [
             { at: 'var account = accountByEmail(email), known = !!account && account.active;', text: 'Is it the email of an active account?' },
             { at: "logSecurity(now, 'reset-unknown', 'warn', typedEmail(email)", text: 'If not: no code is made, but it is logged — and the screen says the same…' },
             { at: 'noteCodeSent(email, now);', text: '…and it uses the hourly allowance just like a real code, so the limits tell nothing either.' },
             { at: 'return issueResetCode(now);', text: 'If so: a six-digit code, kept only as a hash.' }
         ] },
-        { file: 'js/admin-reset.js', fn: 'completePasswordReset', about: 'The code, then the new password.', steps: [
+        { file: 'js/backend/m13-security-logs.js', fn: 'completePasswordReset', about: 'The code, then the new password.', steps: [
             { at: 'if (now > r.expires) {', text: 'An expired code is refused — the same for every email.' },
             { at: 'if (!r.known || digits.length !== OTP_LENGTH || fnv1a(digits) !== r.hash) {', text: 'Compare hashes; a wrong code uses one of three tries.' },
             { at: 'var problem = passwordProblem(password, confirm, account);', text: 'Then the password rules — a weak password uses no try.' },
@@ -500,11 +500,11 @@ module.exports = [
             { at: 'guard.lockedUntil = 0;', text: '…any pause on its email is lifted…' },
             { at: "logSecurity(now, 'password-changed', 'alert'", text: '…and log it as an alert.' }
         ] },
-        { file: 'js/accounts.js', fn: 'setAccountPassword', about: 'Stores a new password — as a hash only.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'setAccountPassword', about: 'Stores a new password — as a hash only.', steps: [
             { at: 'account.salt = makeSalt();', text: 'A fresh random salt…' },
             { at: 'account.passHash = passwordHash(account.salt, password);', text: '…and the salted hash; the password itself is never kept.' }
         ] },
-        { file: 'js/accounts.js', fn: 'passwordProblem', about: 'The password rules, by hand.', steps: [
+        { file: 'js/backend/m12-order-desk.js', fn: 'passwordProblem', about: 'The password rules, by hand.', steps: [
             { at: 'if (p.length < PASSWORD_MIN || p.length > PASSWORD_MAX)', text: '8 to 64 characters.' },
             { at: 'if (isDigit(c)) digits++;', text: 'One pass counts the digits and the letters…' },
             { at: 'if (letters === 0 || digits === 0)', text: '…and needs at least one of each.' },

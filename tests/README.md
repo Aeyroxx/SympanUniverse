@@ -33,8 +33,9 @@ It opens `index.html` straight from disk. No server is needed.
 replace the built-ins. For each structure it checks normal use and the edge
 cases: removing a linked list's head and tail, a circular queue wrapping and
 growing, the heap's tie-breaking and arbitrary removal, collisions in a
-three-bucket hash table. It checks that merge sort and selection sort are
-stable, binary search at both ends and on a miss, and greedy bill counts.
+one-bucket hash table and a table growing once it is full. It checks that
+insertion sort and selection sort are stable, binary search at both ends and
+on a miss, and greedy bill counts. It loads every file of `js/dsa/`.
 
 **store-test.js** plays the seeded history and checks that every event ran.
 It confirms all 160 colour photographs exist and that round and layered

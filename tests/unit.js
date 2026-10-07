@@ -5,7 +5,9 @@
 
 var t = require('./harness');
 var check = t.check, section = t.section;
-var app = t.loadApp(['core', 'structures', 'algorithms']);
+var unitFiles = t.dsaScripts();
+unitFiles[unitFiles.length] = 'frontend/ui/dom';   // escapeHtml
+var app = t.loadApp(unitFiles);
 
 /* Same values in the same order?          Time O(n) · Space O(1) */
 function sameList(a, b) {

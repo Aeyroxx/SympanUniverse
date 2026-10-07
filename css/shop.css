@@ -1,8 +1,8 @@
 /* =========================================================================
-   SHOP — customiser, request, tracking, receipts
+   SHOP · customiser, request, tracking at resibo
    ========================================================================= */
 
-/* ---- Chrome ---------------------------------------------------------- */
+/* ---- Header at footer ------------------------------------------------ */
 .nav-button { border: 0; background: transparent; font-family: inherit; line-height: inherit; cursor: pointer; }
 .app-nav .nav-links { justify-content: flex-start; }
 .link-button {
@@ -14,7 +14,7 @@
 .sort-select { flex: 0 0 15rem; max-width: 100%; }
 @media (max-width: 34rem) { .sort-select { flex: 1 1 100%; } }
 
-/* ---- Cards: the whole card is one button ----------------------------- */
+/* ---- Cards: buong card ay isang button -------------------------------- */
 .card-hit {
     position: absolute; inset: 0; z-index: 2;
     border: 0; background: transparent; cursor: pointer;
@@ -29,7 +29,7 @@
 .card-blurb { margin: 0; }
 .card-foot { justify-content: space-between; }
 
-/* ---- How ordering works ---------------------------------------------- */
+/* ---- Paano mag-order ------------------------------------------------- */
 .how-steps {
     list-style: none; margin: 0; padding: 0;
     display: grid; gap: var(--s-4);
@@ -144,11 +144,21 @@
 .notice ul { margin: 0; padding-left: 1rem; }
 .notice-warn { background: var(--amber-soft); color: var(--amber); }
 .notice-success { background: var(--green-soft); color: var(--green); }
-/* "Dates are estimates": the weather and the road can move them. */
+/* "Estimate lang ang dates": pwedeng magbago dahil sa ulan at traffic. */
 .schedule-note { display: flex; gap: var(--s-2); align-items: flex-start; }
 .schedule-note svg { flex: 0 0 auto; margin-top: 0.15rem; }
 
 .cart-line.is-gone { opacity: 0.55; }
+.cart-line-actions { display: flex; gap: var(--s-1); }
+/* Saglit na umiilaw ang line na kaka-edit: fade ng kulay sa sariling layer
+   sa likod ng content (walang galaw kaya ok din sa reduced motion). */
+.cart-line { position: relative; isolation: isolate; }
+.cart-line::before {
+    content: ''; position: absolute; inset: 0 calc(-1 * var(--s-2)); z-index: -1;
+    border-radius: var(--r-sm); background: var(--green-soft);
+    opacity: 0; transition: opacity var(--dur-slow) var(--ease-out); pointer-events: none;
+}
+.cart-line.is-updated::before { opacity: 1; }
 .done-wrap { max-width: 34rem; margin: var(--s-6) auto; }
 
 /* ---- Tracking --------------------------------------------------------- */
@@ -158,7 +168,7 @@
 .track-block { padding: var(--s-5) 0; border-top: 1px solid var(--line); }
 .track-block:last-child { padding-bottom: var(--s-6); }
 
-/* Courier tracking: the customer's card on Track order (the desk shows a line). */
+/* Courier tracking: card ng customer sa Track order (linya lang sa desk). */
 .tracking-card {
     display: grid; gap: var(--s-1);
     padding: var(--s-3) var(--s-4);
@@ -215,7 +225,7 @@
 }
 .quote-note svg { flex: 0 0 auto; margin-top: 0.1rem; }
 
-/* ---- Receipts --------------------------------------------------------- */
+/* ---- Resibo ----------------------------------------------------------- */
 .receipt-list { display: grid; gap: var(--s-2); }
 .receipt-row {
     display: flex; align-items: center; gap: var(--s-3);
@@ -257,13 +267,13 @@
 .receipt-status.is-paid { background: var(--green-soft); color: var(--green); }
 .receipt-status.is-partial { background: var(--amber-soft); color: var(--amber); }
 
-/* ---- Confirmation sheet: narrow and centred on wide screens ------------ */
+/* ---- Confirmation sheet: makitid at nasa gitna sa malaking screen ---- */
 .confirm-sheet { max-height: 70dvh; }
 @media (min-width: 48rem) {
     .confirm-sheet { left: 0; right: 0; margin-inline: auto; width: min(32rem, 100%); }
 }
 
-/* ---- Printing a receipt ----------------------------------------------- */
+/* ---- Pag-print ng resibo ---------------------------------------------- */
 .print-area { display: none; }
 @media print {
     body.is-printing { position: static !important; top: 0 !important; width: auto !important; overflow: visible !important; }
@@ -272,11 +282,11 @@
     body.is-printing .receipt { border: 0; padding: 0; }
 }
 
-/* ---- Toasts: bottom-left on wide screens -------------------------------
-   Centred under the nav they covered the order desk's tabs; top-right they
-   covered every sheet's close button. On a wide screen the bottom-left
-   corner is the one place no sheet keeps a control: footers put their
-   buttons on the right. Phones keep the top strip (see components.css). */
+/* ---- Toasts: kaliwang baba sa malaking screen -------------------------
+   Pag nasa ilalim ng nav, natatakpan ang tabs ng desk; pag kanang taas,
+   natatakpan ang close button ng sheet. Sa malaking screen, ang kaliwang
+   baba lang ang walang control kasi nasa kanan ang mga button sa footer.
+   Sa phone, sa taas pa rin (tingnan ang components.css). */
 @media (min-width: 62rem) {
     .ui-toast-layer {
         top: auto; bottom: var(--s-6); left: var(--s-6); right: auto;
@@ -285,19 +295,19 @@
     }
 }
 
-/* ---- Buttons that must stay on one line ---------------------------------- */
+/* ---- Buttons na dapat isang linya lang -------------------------------- */
 #addToRequest { white-space: nowrap; }
 @media (max-width: 30rem) {
     .sheet-foot .ui-btn-lg { padding-inline: 1.1em; font-size: var(--t-callout-size); }
 }
 
-/* A photo from the web standing in for the shop's own: say so on the card. */
+/* Litrato galing sa web kapalit ng sariling litrato ng shop: sinasabi sa card. */
 .badge-sample { background: rgba(255, 255, 255, 0.92); color: var(--ink-2); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }
 
 /* ---- Privacy banner ------------------------------------------------------------
-   A floating material bar: translucent over the page, materialising (blur and
-   scale together) rather than just fading. The tokens turn it solid under
-   reduced transparency and give it a firm edge under increased contrast. */
+   Lumulutang na translucent na bar, lumilitaw na sabay ang blur at scale
+   imbes na fade lang. Nagiging solid sa reduced transparency at may
+   matigas na gilid sa increased contrast. */
 .privacy-banner {
     position: fixed; z-index: 85;
     left: var(--s-3); right: var(--s-3);
@@ -321,7 +331,7 @@
     from { opacity: 0; transform: translateY(0.75rem) scale(0.98); filter: blur(6px); }
     to   { opacity: 1; transform: none; filter: none; }
 }
-/* The cart button rides above the banner instead of under it. */
+/* Umaangat ang cart button sa ibabaw ng banner para hindi matakpan. */
 body.has-privacy-banner .cart-fab { bottom: calc(var(--s-5) + var(--privacy-lift, 0px) + env(safe-area-inset-bottom, 0px)); }
 @media (prefers-reduced-motion: reduce) {
     .privacy-banner { animation: privacy-fade var(--dur-fast) linear both; }
@@ -329,7 +339,7 @@ body.has-privacy-banner .cart-fab { bottom: calc(var(--s-5) + var(--privacy-lift
 @keyframes privacy-fade { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-contrast: more) { .privacy-banner { border-color: var(--ink); } }
 
-/* ---- Agreement at checkout, and the notice itself ------------------------------ */
+/* ---- Agreement sa checkout at ang notice mismo --------------------------------- */
 .consent-block { display: grid; gap: var(--s-2); }
 .consent-check { align-items: flex-start; padding: var(--s-3); border-radius: var(--r-md); background: var(--surface-2); cursor: default; }
 .consent-check label { cursor: pointer; }

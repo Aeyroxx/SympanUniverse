@@ -24,13 +24,19 @@
 var fs = require('fs');
 var vm = require('vm');
 var ROOT = __dirname + '/../../';
-vm.runInThisContext(fs.readFileSync(ROOT + 'js/core.js', 'utf8'), { filename: 'core.js' });
-vm.runInThisContext(fs.readFileSync(ROOT + 'js/email-config.js', 'utf8'), { filename: 'email-config.js' });
+// The site's own helpers (js/dsa/ and escapeHtml), loaded into this process.
+var SITE_HELPERS = ['dsa/arrays', 'dsa/strings', 'dsa/numbers', 'dsa/dates', 'dsa/hashing', 'frontend/ui/dom'];
+for (var sh = 0; sh < SITE_HELPERS.length; sh++) {
+    vm.runInThisContext(fs.readFileSync(ROOT + 'js/' + SITE_HELPERS[sh] + '.js', 'utf8'), { filename: SITE_HELPERS[sh] + '.js' });
+}
+vm.runInThisContext(fs.readFileSync(ROOT + 'js/data/email-config.js', 'utf8'), { filename: 'email-config.js' });
 
 var R = require('./render');
 var C = require('./content');
+var FEATURES = require('./features');
 var MODULES = C.MODULES, PARTS = C.PARTS;
 var TRACES = require('./traces');
+var englishNote = require('./note-english').englishNote;
 var OUT = ROOT + 'docs/reviewer/';
 var OWNER = EMAIL_CONFIG.adminEmail;
 var problems = [];
@@ -89,7 +95,7 @@ function findFunction(file, name) {
     var top = start;
     while (top > 0 && top > start - 12 && strip(lines[top - 1]) !== '' && lines[top - 1].charAt(0) !== '}' &&
            !beginsWith(strip(lines[top - 1]), '/* ====')) top--;
-    if (top < start && !beginsWith(strip(lines[top]), '/*')) top = start;
+    if (top < start && !beginsWith(strip(lines[top]), '/*') && !beginsWith(strip(lines[top]), '//')) top = start;
     var note = '';
     for (var back = start - 1; back >= 0 && back >= start - 8 && note === ''; back--) {
         var at = posOf(lines[back], 'Time O(');
@@ -98,8 +104,8 @@ function findFunction(file, name) {
     var split = posOf(note, 'Space O(');
     return {
         file: file, name: name, start: start + 1, end: end + 1, top: top + 1, lines: copyRange(lines, top, end + 1),
-        time: split === -1 ? note : dropSeparator(strip(textPart(note, 0, split))),
-        space: split === -1 ? '' : strip(textPart(note, split))
+        time: englishNote(split === -1 ? note : dropSeparator(strip(textPart(note, 0, split)))),
+        space: split === -1 ? '' : englishNote(strip(textPart(note, split)))
     };
 }
 
@@ -324,7 +330,7 @@ function startHtml() {
     var contents = ['System overview and the project rules', 'Data structures and algorithms used — a primer'];
     for (var i = 0; i < PARTS.length; i++) listAdd(contents, partName(PARTS[i]) + ' — ' + renderEach(PARTS[i].modules, function (id) {
         var m = moduleById(id); return 'Module ' + m.no + ' ' + m.title; }, ' · '));
-    listAdd(contents, 'Appendix — complexity summary, general panel questions, glossary, file map');
+    listAdd(contents, 'Appendix — complexity summary, general panel questions, glossary, file map, and every other feature in the order of the flow');
     return '<section class="page start">' +
         '<p class="kicker">Start here</p><h1>How to use this reviewer</h1>' +
         '<p class="lead">Every module has the same layout, in the same order the panel asks the questions:</p>' +
@@ -407,7 +413,7 @@ function primerHtml() {
     ];
     return '<section class="page primer"><p class="kicker">Shared knowledge — every member should know this page</p>' +
         '<h1>Data structures &amp; algorithms primer</h1><p class="note">n = the size of whatever an operation goes through (records, items in a queue, ' +
-        'or the characters of a text). Only the four notations from class are used: O(1), O(log n), O(n), O(n²). All of these live in js/structures.js and js/algorithms.js.</p>' +
+        'or the characters of a text). Only the four notations from class are used: O(1), O(log n), O(n), O(n²). All of these live in js/dsa/, one file each.</p>' +
         '<div class="primer-grid">' + renderEach(cards, function (c) {
             return '<div class="card primer-card"><h4>' + escapeHtml(c[0]) + '</h4>' + c[1] + '<p>' + escapeHtml(c[2]) + '</p></div>';
         }) + '<div class="card primer-card"><h4>Why procedural?</h4><p>Every structure is a plain record plus functions that receive it — stackPush(stack, value), ' +
@@ -462,7 +468,36 @@ function appendixHtml() {
     }
     var c = '<section class="page appendix"><p class="kicker">Appendix C</p><h1>Glossary</h1>' + R.table(['Term', 'Meaning'], C.GLOSSARY) +
         '<h3>File map — who explains what</h3>' + R.table(['Part', 'Rules and structures (js/)', 'Screens (js/)'], map) + '</section>';
-    return a + b + c;
+    return a + b + c + featuresHtml();
+}
+
+/* "Time O(n)" → "O(n)": the column already says which.  Time O(n) · Space O(n) */
+function withoutLabel(note, label) {
+    return beginsWith(note, label) ? textPart(note, label.length) : note;
+}
+
+/* Appendix D: every feature besides the modules, in the order of the flow.
+   Each row's Time and Space are read from its function's own note.
+                                           Time O(n²) · Space O(n) */
+function featuresHtml() {
+    var body = '', no = 0;
+    for (var s = 0; s < FEATURES.length; s++) {
+        var rows = [];
+        for (var i = 0; i < FEATURES[s].items.length; i++) {
+            var f = FEATURES[s].items[i], fn = findFunction(f.file, f.fn);
+            no++;
+            listAdd(rows, [String(no), '<strong>' + escapeHtml(f.name) + '</strong><span class="feature-what">' + escapeHtml(f.what) + '</span>',
+                           escapeHtml(f.how), cost(fn ? withoutLabel(fn.time, 'Time ') : '?'), cost(fn ? withoutLabel(fn.space, 'Space ') : '?'),
+                           '<span class="mono">' + escapeHtml(textPart(f.file, 3)) + '<br>' + escapeHtml(f.fn) + '()</span>']);
+        }
+        body += '<h3>' + (s + 1) + '. ' + escapeHtml(FEATURES[s].stage) + '</h3>' +
+            htmlTable(['#', 'Feature', 'Structure / algorithm', 'Time', 'Space', 'Code'], rows, 'features');
+    }
+    return '<section class="page appendix"><p class="kicker">Appendix D</p><h1>Every other feature — in the order of the flow</h1>' +
+        '<p class="note">Besides modules 1 to 12, these are all the features of the site, in the order a visit flows — from opening it to what runs by ' +
+        'itself. (The security pieces are explained in full in module 13.) ' +
+        'Time and Space are copied from each function’s own note in the code, so they always match it; n is what that function goes through.</p>' +
+        body + '</section>';
 }
 
 /* =========================================================================

@@ -12,8 +12,11 @@
 
 var t = require('./harness');
 var check = t.check, section = t.section;
-var app = t.loadApp(['core', 'structures', 'algorithms', 'data', 'email-config', 'store', 'audit', 'accounts', 'orders', 'production', 'notify', 'tracking', 'editing',
-                     'reports', 'seed', 'mail', 'motion', 'ui', 'receipt', 'admin-signin', 'admin-reset']);
+var storeFiles = t.backendScripts();
+var screens = ['frontend/ui/dom', 'frontend/ui/motion', 'frontend/ui/toasts', 'frontend/ui/sheets', 'frontend/ui/parts', 'frontend/ui/receipt',
+               'frontend/desk/sign-in', 'frontend/desk/password-reset'];
+for (var sc = 0; sc < screens.length; sc++) storeFiles[storeFiles.length] = screens[sc];
+var app = t.loadApp(storeFiles);
 
 var BASE = new Date(2026, 9, 5, 12, 0, 0, 0);   // Monday 5 October 2026, noon
 var NOW = BASE.getTime();
@@ -382,8 +385,7 @@ check('five wrong passwords in a row pause that email', app.textHas(app.deskSign
 app.codeSends = app.hashCreate(17);   // the earlier steps used up the owner's codes for this hour
 check('…but not anyone else\'s', app.deskSignIn(app.EMAIL_CONFIG.adminEmail, 'admin123', at + 2000) === '');
 app.deskState.stage = 'password';
-check('no password is in the source as text', !app.textHas(t.readText('js/data.js') + t.readText('js/admin-signin.js') +
-      t.readText('js/email-config.js'), 'admin123'));
+check('no password is in the source as text', !app.textHas(t.siteSource(), 'admin123'));
 
 /* The newest security entry.              Time O(1) · Space O(1) */
 function lastSecurity() {
@@ -475,7 +477,8 @@ check('three codes per reset', app.textHas(app.resendResetCode(NOW + 193000).mes
 app.deskState.reset = null;
 app.deskState.stage = 'password';
 app.setAccountPassword(app.accountByEmail(OWNER), 'admin123');
-check('the password source stays free of the password text', !app.textHas(t.readText('js/admin-reset.js'), 'admin123'));
+check('the password source stays free of the password text', !app.textHas(t.readText('js/backend/m13-security-logs.js') +
+      t.readText('js/frontend/desk/password-reset.js'), 'admin123'));
 
 section('code emails per hour');
 app.codeSends = app.hashCreate(17);
@@ -505,8 +508,7 @@ check('the credentials are an array in id order, indexed by email in a hash tabl
       app.hashGet(app.staffEmailIndex, app.accountEmailKey(OWNER)) === 1 && owner.id === 1 && bea.id === 2);
 check('only salted hashes are stored, each with its own salt', owner.salt !== bea.salt && owner.passHash === app.passwordHash(owner.salt, 'admin123') &&
       app.passwordHash('other-salt', 'admin123') !== owner.passHash && owner.password === undefined);
-var sourceText = t.readText('js/data.js') + t.readText('js/accounts.js') + t.readText('js/admin-signin.js') + t.readText('js/admin-reset.js') +
-                 t.readText('js/admin-account.js');
+var sourceText = t.siteSource();
 check('no password is written in the source', !app.textHas(sourceText, 'admin123') && !app.textHas(sourceText, 'Staff2026'));
 check('a staff member signs in with their own credentials', app.deskSignIn('bea.cruz@example.com', 'Staff2026', NOW) === '' &&
       app.deskState.pendingId === 2);
@@ -553,6 +555,30 @@ app.deskState.stage = 'password';
 app.deskUserId = 0;
 app.deskState.authed = false;
 check('signed out, the audit log names the order desk again', app.deskActor() === 'Order desk');
+
+section('category filter, search and sort (modules 2 and 3)');
+var underFlowers = app.productsUnder('flower-bouquets');
+check('the tree filter keeps only the products under a branch, and everything with no branch', underFlowers.length > 0 &&
+      app.countWhere(underFlowers, function (p) { return app.productBranch(p).slug !== 'flower-bouquets'; }) === 0 &&
+      app.productsUnder('').length === app.activeProducts().length && app.productsUnder('rose').length >= 1);
+var matchaRows = app.catalogRows({ line: '', branch: '', query: 'matcha', sort: 'best' });
+check('search reads the filter it is given and finds products by a colour name', matchaRows.length > 0 &&
+      app.countWhere(matchaRows, function (r) { return r.product.kind !== 'flower'; }) === 0);
+var byPrice = app.catalogRows({ line: '', branch: 'flower-bouquets', query: '', sort: 'price' }), priceOrder = true;
+for (var bp = 1; bp < byPrice.length; bp++) if (app.productStartsAt(byPrice[bp].product) < app.productStartsAt(byPrice[bp - 1].product)) priceOrder = false;
+check('the price sort puts the cheapest "Starts at" first', byPrice.length === underFlowers.length && priceOrder);
+
+section('editing a cart line');
+app.llClear(app.basket);
+var lineA = app.makeFlowerItem(app.productById(101), { arrangement: 'round', count: 7, color: 'red', quantity: 1, addons: [] }).item;
+var lineB = app.makeFlowerItem(app.productById(101), { arrangement: 'round', count: 12, color: 'red', quantity: 2, addons: ['glitter'] }).item;
+app.basketAdd(lineA); app.basketAdd(lineB);
+var edited = app.makeFlowerItem(app.productById(101), { arrangement: 'round', count: 7, color: 'matcha', quantity: 3, addons: ['card'] }).item;
+check('an edited line goes back in its place', app.basketReplace(0, edited) && app.basketItems().length === 2 &&
+      app.basketItems()[0].color === 'matcha' && app.basketItems()[0].quantity === 3 && app.basketItems()[1].count === 12);
+check('its estimate is the new choice\'s', app.basketItems()[0].estimate === edited.unitEstimate * 3);
+check('a removed line cannot be edited', app.basketRemove(1) && !app.basketReplace(1, edited));
+app.llClear(app.basket);
 
 section('courier tracking');
 var shipped = app.firstWhere(app.orders, function (o) {

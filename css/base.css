@@ -1,5 +1,5 @@
 /* =========================================================================
-   BASE — reset, typography, layout primitives
+   BASE · reset, typography at mga basic na layout
    ========================================================================= */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -7,7 +7,7 @@
 html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
-    scroll-padding-top: 5.5rem;   /* floating chrome must not cover anchors */
+    scroll-padding-top: 5.5rem;   /* para hindi matakpan ng header ang anchors */
 }
 
 body {
@@ -90,7 +90,7 @@ h1, h2, h3, h4, h5, h6 { margin: 0; font-weight: 600; color: var(--ink); }
 .dim-2 { color: var(--ink-2); }
 .rose  { color: var(--rose); }
 
-/* Balanced ragging on short display lines. */
+/* Pantay na hati ng maiikling linya ng title. */
 .t-hero, .t-display, .t-title1 { text-wrap: balance; }
 p.lede { max-width: 58ch; color: var(--ink-2); }
 
@@ -147,8 +147,8 @@ a.link:hover { text-decoration-color: currentColor; }
 .skip-link:focus-visible { transform: none; }
 
 /* ---- Scroll edge effect (apple-design §12) --------------------------
-   No hard 1px divider under floating chrome — a short gradient mask
-   where content meets the translucent bar.
+   Walang matigas na 1px na linya sa ilalim ng header; maikling gradient
+   lang kung saan nagtatagpo ang content at ang translucent na bar.
    -------------------------------------------------------------------- */
 .scroll-edge {
     position: fixed; inset-inline: 0; top: 0;
@@ -167,8 +167,8 @@ a.link:hover { text-decoration-color: currentColor; }
 
 /* =========================================================================
    REDUCED MOTION
-   Replace travel with cross-fades; drop overshoot. Comprehension-carrying
-   opacity and colour changes stay.
+   Cross-fade imbes na gumalaw, at walang talbog. Naiiwan ang pagbabago ng
+   opacity at kulay kasi nakakatulong sa pag-intindi.
    ========================================================================= */
 @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -183,7 +183,7 @@ a.link:hover { text-decoration-color: currentColor; }
     .reveal { opacity: 1 !important; transform: none !important; }
 }
 
-/* ---- Entrance reveal (opt-in, disabled under reduced motion) --------- */
+/* ---- Paglabas ng section (opt-in, wala sa reduced motion) ----------- */
 .reveal {
     opacity: 0;
     transform: translate3d(0, 14px, 0);

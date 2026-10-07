@@ -26,7 +26,7 @@
 <div class="scroll-edge" aria-hidden="true"></div>
 
 <!-- =====================================================================
-     THE SHOP
+     ANG SHOP
      ===================================================================== -->
 <div id="shopView">
 
@@ -164,8 +164,8 @@
     </div>
 </footer>
 
-<!-- Privacy, said once and plainly: a translucent bar the visitor can read
-     or dismiss. Nothing is stored, so it returns on each visit. -->
+<!-- Privacy: isang beses lang sinasabi, sa translucent na bar na pwedeng
+     basahin o isara. Walang tinatago kaya bumabalik sa bawat bisita. -->
 <div class="privacy-banner hidden" id="privacyBanner" role="region" aria-label="Your privacy">
     <span class="privacy-banner-icon" id="privacyBannerIcon" aria-hidden="true"></span>
     <p class="privacy-banner-text t-foot">We protect your personal data under the <strong>Data Privacy Act of 2012</strong> (RA 10173).
@@ -185,9 +185,9 @@
 </div>
 
 <!-- =====================================================================
-     THE ORDER DESK — reached only at index.html#admin: each account's email
-     and password, then a six-digit code sent to that account's email.
-     "Forgot password?" resets it with an emailed code.
+     ORDER DESK · sa index.html#admin lang: email at password ng account,
+     tapos six-digit code na ipapadala sa email nito. "Forgot password?"
+     para mag-reset gamit ang code sa email.
      ===================================================================== -->
 <div id="adminView" class="hidden">
 
@@ -288,7 +288,7 @@
 </div>
 
 <!-- =====================================================================
-     SHEETS
+     MGA SHEET
      ===================================================================== -->
 <section class="sheet sheet-full" id="productSheet" role="dialog" aria-modal="true"
          aria-labelledby="productSheetTitle" aria-hidden="true">
@@ -380,38 +380,70 @@
 
 <div id="printArea" class="print-area" aria-hidden="true"></div>
 
-<script src="js/core.js"></script>
-<script src="js/structures.js"></script>
-<script src="js/algorithms.js"></script>
-<script src="js/data.js"></script>
-<script src="js/email-config.js"></script>
-<script src="js/store.js"></script>
-<script src="js/audit.js"></script>
-<script src="js/accounts.js"></script>
-<script src="js/orders.js"></script>
-<script src="js/production.js"></script>
-<script src="js/notify.js"></script>
-<script src="js/tracking.js"></script>
-<script src="js/editing.js"></script>
-<script src="js/reports.js"></script>
-<script src="js/seed.js"></script>
-<script src="js/mail.js"></script>
-<script src="js/motion.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/receipt.js"></script>
-<script src="js/shop-catalog.js"></script>
-<script src="js/shop-product.js"></script>
-<script src="js/shop-basket.js"></script>
-<script src="js/shop-track.js"></script>
-<script src="js/shop-privacy.js"></script>
-<script src="js/admin-signin.js"></script>
-<script src="js/admin-reset.js"></script>
-<script src="js/admin-desk.js"></script>
-<script src="js/admin-overview.js"></script>
-<script src="js/admin-logs.js"></script>
-<script src="js/admin-account.js"></script>
-<script src="js/admin-orders.js"></script>
-<script src="js/admin-products.js"></script>
+<!-- DSA guide: sariling built-ins, data structures at algorithms -->
+<script src="js/dsa/arrays.js"></script>
+<script src="js/dsa/strings.js"></script>
+<script src="js/dsa/numbers.js"></script>
+<script src="js/dsa/dates.js"></script>
+<script src="js/dsa/hashing.js"></script>
+<script src="js/dsa/linked-list.js"></script>
+<script src="js/dsa/circular-queue.js"></script>
+<script src="js/dsa/min-heap.js"></script>
+<script src="js/dsa/stack.js"></script>
+<script src="js/dsa/n-ary-tree.js"></script>
+<script src="js/dsa/hash-table.js"></script>
+<script src="js/dsa/sorting.js"></script>
+<script src="js/dsa/searching.js"></script>
+<script src="js/dsa/recursion.js"></script>
+<script src="js/dsa/greedy.js"></script>
+<!-- Data: catalogue, delivery, rules, security, privacy, email -->
+<script src="js/data/catalog.js"></script>
+<script src="js/data/delivery.js"></script>
+<script src="js/data/shop-rules.js"></script>
+<script src="js/data/desk-security.js"></script>
+<script src="js/data/privacy.js"></script>
+<script src="js/data/email-config.js"></script>
+<!-- Backend: state, orders, at isang file bawat module (m01 hanggang m13) -->
+<script src="js/backend/state.js"></script>
+<script src="js/backend/orders.js"></script>
+<script src="js/backend/m01-catalogue-best-sellers.js"></script>
+<script src="js/backend/m02-category-navigation.js"></script>
+<script src="js/backend/m03-search-sort.js"></script>
+<script src="js/backend/m04-flower-customiser.js"></script>
+<script src="js/backend/m05-gift-customiser.js"></script>
+<script src="js/backend/m06-cart.js"></script>
+<script src="js/backend/m07-checkout-delivery.js"></script>
+<script src="js/backend/m08-quotation-desk.js"></script>
+<script src="js/backend/m09-payment-receipts-email.js"></script>
+<script src="js/backend/m10-production-tracking.js"></script>
+<script src="js/backend/m11-order-records.js"></script>
+<script src="js/backend/m12-order-desk.js"></script>
+<script src="js/backend/m12-order-editing.js"></script>
+<script src="js/backend/m13-security-logs.js"></script>
+<!-- Demo history (anim na linggong orders) -->
+<script src="js/data/demo-history.js"></script>
+<!-- Frontend: UI kit, shop screens, order desk screens -->
+<script src="js/frontend/ui/dom.js"></script>
+<script src="js/frontend/ui/motion.js"></script>
+<script src="js/frontend/ui/toasts.js"></script>
+<script src="js/frontend/ui/sheets.js"></script>
+<script src="js/frontend/ui/parts.js"></script>
+<script src="js/frontend/ui/receipt.js"></script>
+<script src="js/frontend/shop/catalog.js"></script>
+<script src="js/frontend/shop/product.js"></script>
+<script src="js/frontend/shop/cart.js"></script>
+<script src="js/frontend/shop/track-order.js"></script>
+<script src="js/frontend/shop/privacy.js"></script>
+<script src="js/frontend/desk/sign-in.js"></script>
+<script src="js/frontend/desk/password-reset.js"></script>
+<script src="js/frontend/desk/desk.js"></script>
+<script src="js/frontend/desk/overview.js"></script>
+<script src="js/frontend/desk/outbox.js"></script>
+<script src="js/frontend/desk/logs.js"></script>
+<script src="js/frontend/desk/account.js"></script>
+<script src="js/frontend/desk/order-sheet.js"></script>
+<script src="js/frontend/desk/products.js"></script>
+<!-- Simula ng app -->
 <script src="js/app.js"></script>
 </body>
 </html>

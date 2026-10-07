@@ -1,8 +1,8 @@
 /* =========================================================================
    REVIEWER RENDER HELPERS — small HTML builders shared by the trace and
-   page builders. Written under the project's rules: core.js helpers, no
-   banned built-ins, no regular expressions. core.js must already be loaded
-   into this process (build.js does that first).
+   page builders. Written under the project's rules: the site's own helpers
+   (js/dsa/), no banned built-ins, no regular expressions. Those helpers
+   must already be loaded into this process (build.js does that first).
    ========================================================================= */
 
 /* A table from headers and rows of cell text.  Time O(n²) · Space O(n²) */

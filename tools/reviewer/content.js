@@ -8,7 +8,7 @@
    the build finds that line and fails if it has gone.
 
    "{OWNER}" in any text is replaced by the owner's sign-in email from
-   js/email-config.js when the reviewer is built.
+   js/data/email-config.js when the reviewer is built.
    ========================================================================= */
 
 /* =========================================================================
@@ -121,10 +121,10 @@ var SYSTEM = {
     quoteFlow: ['Quote cart', '⑧ Owner quotes it', '⑨ Customer pays', '⑩ Production', '⑪ Ready → records'],
     ownerFlow: '⑫ The owner and staff each sign in with their own account (password + emailed code); the owner watches the Overview by day, month or year, edits orders and products, and adds or disables staff accounts. ⑬ Every sign-in attempt and every change is in the security and audit logs; a forgotten password is reset with an emailed code. ⑩ Courier deliveries get the courier’s tracking number or link.',
     layers: [
-        ['js/core.js, structures.js, algorithms.js', 'Our own array, text and date helpers; the linked list, circular queue, min-heap, stack, n-ary tree and hash table; the sorts, searches, recursion and greedy algorithm.'],
-        ['js/data.js, store.js, orders.js, notify.js, editing.js, reports.js', 'The "database" (arrays) and the business rules: the catalogue, cart, checkout, quotations, payments, production, records, emails and reports.'],
-        ['js/ui.js, motion.js, mail.js, receipt.js', 'Screens, sheets, animation, the email sender (EmailJS) and receipts.'],
-        ['js/shop-*.js, admin-*.js, app.js', 'One script per screen: the shop, and the order desk at index.html#admin.']
+        ['js/dsa/', 'The DSA guide, one file each: our own array, text, number and date helpers; the linked list, circular queue, min-heap, stack, n-ary tree and hash table; sorting, searching, recursion and the greedy algorithm.'],
+        ['js/data/', 'The fixed data: catalogue, delivery areas and couriers, shop rules, desk security limits, the Privacy Notice, the email settings and the demo history.'],
+        ['js/backend/', 'The "database" (state.js), what every order has (orders.js), and one file per module, m01 to m13, holding that module’s rules.'],
+        ['js/frontend/, app.js', 'The screens: the UI kit (sheets, motion, toasts, receipts), the shop, and the order desk at index.html#admin.']
     ],
     data: [
         ['orders', 'order number (201, 202 …)', 'numbers only grow → append, O(1); the array stays sorted for binary search', '1, 7–12'],
@@ -145,9 +145,9 @@ var SYSTEM = {
         ['HTML, CSS, Bootstrap and JavaScript only; JS is the "backend"', 'No server, no framework, no database program. Bootstrap 5.3 gives the grid; everything else is our own code.'],
         ['Data cannot transfer between pages (arrays)', 'One page, index.html: the shop and the order desk (#admin) are shown and hidden, so the arrays survive every screen change. No localStorage, no cookies, no server. A reload starts again from the demo data.'],
         ['Procedural, not OOP', 'Only functions and plain records: no class, this, prototype or new (except new Date once, to read the clock). A queue is the record { items, head, tail, count, capacity } plus functions like cqEnqueue(queue, value).'],
-        ['No built-in helpers: push, pop, shift, unshift, splice, slice, concat, sort, reverse, indexOf, includes, find, filter, map, forEach, reduce, some, every, join; split, replace, trim, toLowerCase, toUpperCase, padStart, substring; no regular expressions', 'All replaced by our own functions in js/core.js, js/structures.js and js/algorithms.js — listAdd, copyRange, keepWhere, firstWhere, cutText, strip, toLower, insertionSort, binarySearch … tests/rubric.js scans every script and fails on any of them.'],
+        ['No built-in helpers: push, pop, shift, unshift, splice, slice, concat, sort, reverse, indexOf, includes, find, filter, map, forEach, reduce, some, every, join; split, replace, trim, toLowerCase, toUpperCase, padStart, substring; no regular expressions', 'All replaced by our own functions in js/dsa/ — listAdd, copyRange, keepWhere, firstWhere, cutText, strip, toLower, insertionSort, binarySearch … tests/rubric.js scans every script and fails on any of them.'],
         ['State the time and space complexity, using only O(1), O(log n), O(n) and O(n²)', 'Written above every function in js/. The rubric fails on a missing note or on any other notation — which is why there is no merge sort: it is O(n log n).'],
-        ['Use Date only to read the clock', 'readClock() holds the only new Date. Adding days, weekdays, month lengths and leap years are our own day-number arithmetic (dayNumber, dateOfDayNumber in js/core.js).']
+        ['Use Date only to read the clock', 'readClock() holds the only new Date. Adding days, weekdays, month lengths and leap years are our own day-number arithmetic (dayNumber, dateOfDayNumber in js/dsa/dates.js).']
     ],
     builtins: 'Built-ins that are used are only for input and output: the page itself (the DOM), Date (to read the clock), Math, Number, String, charAt and charCodeAt, the length of an array or text, timers, crypto.getRandomValues (the six-digit codes and the password salts), and fetch with JSON.stringify to hand an email to EmailJS.'
 };
@@ -166,7 +166,7 @@ var COUNTING = [
    ========================================================================= */
 var GENERAL_QUESTIONS = [
     ['Why is the whole website one HTML page?', 'Our data lives in JavaScript arrays, and arrays exist only while the page is open — they cannot be carried to another HTML file. So the shop and the order desk are sections of one index.html, shown and hidden; the part after # in the address picks the view. The arrays stay alive while you move between screens.'],
-    ['Where is the data saved? What happens when you refresh?', 'Only in memory (the arrays in js/store.js). There is no localStorage, cookie or server. Refreshing the page replays the demo history again — expected under the project rule, and it means every demonstration starts from the same state.'],
+    ['Where is the data saved? What happens when you refresh?', 'Only in memory (the arrays in js/backend/state.js). There is no localStorage, cookie or server. Refreshing the page replays the demo history again — expected under the project rule, and it means every demonstration starts from the same state.'],
     ['Why didn’t you use push, sort, indexOf, filter and the other built-ins?', 'It was a project rule, and it shows we understand what they do. Each has our own version: listAdd (push), copyRange (slice), positionIn (indexOf), keepWhere (filter), firstWhere (find), renderEach (map + join), insertionSort (sort), cutText (split), strip (trim), toLower (toLowerCase) — and no regular expressions.'],
     ['What does "procedural, not OOP" mean in your code?', 'There are no classes, no this and no methods. Data is plain records (a queue is { items, head, tail, count, capacity }) and every operation is a separate function that receives the record: cqEnqueue(queue, value), stackPush(stack, value), hashPut(table, key, value).'],
     ['Why insertion and selection sort, and not merge sort or quick sort?', 'The course allows only O(1), O(log n), O(n) and O(n²); merge sort is O(n log n). Quick sort is not stable and its worst case is O(n²) anyway. Our lists are small and usually almost in order — orders, emails and receipts are appended as they happen — which is insertion sort’s best case, O(n). Selection sort ranks the ten best sellers with a fixed, easy-to-show cost.'],
@@ -178,7 +178,7 @@ var GENERAL_QUESTIONS = [
     ['What about the customers’ personal data?', 'The shop asks only for what an order needs: name, email, mobile, and an address for a delivery. A Data Privacy Notice under the Data Privacy Act of 2012 (RA 10173) says who collects it, why, who else receives it (couriers, the email service), how long it is kept and the customer’s rights, including complaining to the National Privacy Commission. A banner points to it, checkout cannot finish until the customer ticks two separate boxes — the notice and the order terms — and the order records which versions were agreed to and when. The customer may withdraw consent by messaging the shop. The site sets no cookies and saves nothing on the device.'],
     ['Where do the photos of the sweets bouquet and the beer-in-can cake come from?', 'The shop had not photographed them yet, so they show openly licensed photographs of similar gifts found online (Wikimedia Commons and Flickr, CC BY-SA). Each is labelled "Sample photo" and credited with its author, licence and source, with a note that it is not the shop’s own work; the credits are also in assets/products/CREDITS.md.'],
     ['How do you prove the complexities?', 'Each function states its cost above its code, and tests/rubric.js fails if one is missing or uses another notation. The unit tests count insertion sort’s comparisons on sorted and reversed input (n − 1 and n(n − 1)/2). The traces in this reviewer were produced by running our actual functions on the demo data.'],
-    ['Did you use the Date object?', 'Only to read the clock: readClock() reads the time and the time zone, and Date.now() gives timestamps. All date maths — adding days, the weekday, month lengths, leap years, the day a timestamp falls on — is our own day-number arithmetic in js/core.js.'],
+    ['Did you use the Date object?', 'Only to read the clock: readClock() reads the time and the time zone, and Date.now() gives timestamps. All date maths — adding days, the weekday, month lengths, leap years, the day a timestamp falls on — is our own day-number arithmetic in js/dsa/dates.js.'],
     ['What would you improve with more time?', 'A real server and database so data survives a refresh; online payment through the payment provider instead of typed references; SMS updates; and a balanced tree or database index once the order list grows to many thousands.']
 ];
 
@@ -214,10 +214,10 @@ var GLOSSARY = [
 ];
 
 var FILE_MAP = [
-    ['1 · The shop window', 'store.js (salesTally, topSellers) · algorithms.js (selectionSortDesc, linearSearch, insertionSort) · structures.js (tree, stack) · core.js (textHas)', 'shop-catalog.js'],
-    ['2 · Choosing a gift', 'structures.js (hash table, linked list) · store.js (buildReferenceIndex, makeFlowerItem, makeQuoteItem, basket) · algorithms.js (sumRecursive, breakIntoBills)', 'shop-product.js · shop-basket.js'],
-    ['3 · Checkout and payment', 'store.js (lookupArea, deliveryQuote) · orders.js (validateRequest, quoteHistory, sendQuote, placeOrder, acceptQuote, issueReceipt) · notify.js · mail.js · data.js (PRIVACY_NOTICE, ORDER_TERMS)', 'shop-basket.js · shop-privacy.js · shop-track.js · admin-orders.js · receipt.js'],
-    ['4 · Behind the counter', 'structures.js (heap, circular queue, stack, hash table) · production.js (productionLine, completeNext, undoCompletion, completedByDate, voidOrder) · tracking.js · algorithms.js (binarySearch) · reports.js · accounts.js · audit.js · admin-signin.js · admin-reset.js', 'admin-desk.js · admin-overview.js · admin-account.js · admin-logs.js · admin-orders.js · admin-products.js · shop-track.js']
+    ['1 · The shop window', 'backend/m01-catalogue-best-sellers.js · backend/m02-category-navigation.js · backend/m03-search-sort.js · dsa/sorting.js · dsa/searching.js · dsa/n-ary-tree.js · dsa/stack.js', 'frontend/shop/catalog.js'],
+    ['2 · Choosing a gift', 'backend/m04-flower-customiser.js · backend/m05-gift-customiser.js · backend/m06-cart.js · dsa/hash-table.js · dsa/linked-list.js · dsa/recursion.js · dsa/greedy.js', 'frontend/shop/product.js · frontend/shop/cart.js'],
+    ['3 · Checkout and payment', 'backend/m07-checkout-delivery.js · backend/m08-quotation-desk.js · backend/m09-payment-receipts-email.js · dsa/circular-queue.js · data/privacy.js', 'frontend/shop/cart.js · frontend/shop/privacy.js · frontend/shop/track-order.js · frontend/desk/order-sheet.js · frontend/ui/receipt.js'],
+    ['4 · Behind the counter', 'backend/m10-production-tracking.js · backend/m11-order-records.js · backend/m12-order-desk.js · backend/m12-order-editing.js · backend/m13-security-logs.js · dsa/min-heap.js · dsa/stack.js · dsa/searching.js', 'frontend/desk/sign-in.js · frontend/desk/password-reset.js · frontend/desk/desk.js · frontend/desk/overview.js · frontend/desk/outbox.js · frontend/desk/logs.js · frontend/desk/account.js · frontend/desk/order-sheet.js · frontend/desk/products.js · frontend/shop/track-order.js'],
 ];
 
 /* =========================================================================

@@ -1,17 +1,16 @@
 /* =========================================================================
-   SÝMPAN UNIVERSE — DESIGN TOKENS
-   Single source of truth for colour, type, space, depth and motion.
-   Nothing here is arbitrary; every value is a deliberate step on a scale.
+   SÝMPAN UNIVERSE · DESIGN TOKENS
+   Iisang lugar ng kulay, font, spacing, lalim at motion.
+   Walang random na value; lahat ay hakbang sa isang scale.
    ========================================================================= */
 
 :root {
     color-scheme: light;
 
     /* ---------------------------------------------------------------------
-       COLOUR
-       The shop is light only. Neutral chrome by design: the bouquets are
-       vividly coloured, so the interface stays quiet and lets the
-       photography carry the colour.
+       KULAY
+       Light lang ang shop. Neutral ang chrome kasi makukulay na ang mga
+       bouquet, kaya tahimik lang ang interface at litrato ang may kulay.
        --------------------------------------------------------------------- */
     --bg:              #fbfbfd;
     --bg-sunken:       #f2f2f5;
@@ -19,17 +18,17 @@
     --surface-2:       #f7f7f9;
     --surface-hover:   #f0f0f3;
 
-    --ink:             #1d1d1f;   /* primary text + primary buttons  */
-    --ink-hover:       #000000;   /* primary button, pressed toward black */
-    --ink-2:           #4b4b50;   /* secondary text                  */
-    --ink-3:           #6e6e73;   /* tertiary text, captions         */
-    --ink-4:           #a1a1a8;   /* placeholder, disabled           */
-    --on-ink:          #ffffff;   /* text on top of --ink            */
+    --ink:             #1d1d1f;   /* pangunahing text at buttons */
+    --ink-hover:       #000000;   /* pinindot na primary button, mas maitim */
+    --ink-2:           #4b4b50;   /* pangalawang text */
+    --ink-3:           #6e6e73;   /* pangatlong text, captions */
+    --ink-4:           #a1a1a8;   /* placeholder, disabled */
+    --on-ink:          #ffffff;   /* text sa ibabaw ng --ink */
 
     --line:            rgba(0, 0, 0, 0.10);
     --line-strong:     rgba(0, 0, 0, 0.18);
 
-    /* Rose — the one accent. Used for price, rush, and moments of warmth. */
+    /* Rose, ang nag-iisang accent. Para sa presyo, rush at mga masayang sandali. */
     --rose:            #c1294a;
     --rose-hover:      #a71f3d;
     --rose-soft:       rgba(193, 41, 74, 0.10);
@@ -43,7 +42,7 @@
     --focus:           #0071e3;
     --focus-ring:      0 0 0 4px rgba(0, 113, 227, 0.32);
 
-    /* Translucent materials (apple-design §12) ------------------------- */
+    /* Translucent na materials (apple-design §12) ------------------------- */
     --mat-chrome:      rgba(251, 251, 253, 0.72);
     --mat-thick:       rgba(255, 255, 255, 0.82);
     --mat-edge:        rgba(255, 255, 255, 0.55);
@@ -53,10 +52,9 @@
     --skeleton:        linear-gradient(90deg, #eeeef1 25%, #f6f6f8 37%, #eeeef1 63%);
 
     /* ---------------------------------------------------------------------
-       TYPE
-       System font for the interface (it ships optical sizing and legibility
-       tuning). A serif display face only for the brand voice — it echoes the
-       wordmark in the logo, which is the reason required to override.
+       FONT
+       System font sa interface (maayos na ang sizing at linaw niya). Serif
+       lang para sa brand, kahawig ng wordmark sa logo.
        --------------------------------------------------------------------- */
     --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
                "Helvetica Neue", Arial, system-ui, sans-serif;
@@ -64,7 +62,7 @@
     --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono",
                  Menlo, Consolas, monospace;
 
-    /* Tracking is size-specific — large text tightens, small text opens up. */
+    /* Iba ang letter-spacing depende sa laki: masikip sa malaki, maluwag sa maliit. */
     --t-hero-size:   clamp(2.5rem, 6.4vw, 4.25rem);
     --t-hero-lh:     1.04;
     --t-hero-ls:     -0.032em;
@@ -104,8 +102,8 @@
     --t-over-ls:     0.115em;
 
     /* ---------------------------------------------------------------------
-       SPACE — 4px base, expressed in rem so the layout grows with the
-       reader's text-size preference instead of breaking against it.
+       SPACING · 4px ang base, naka-rem para lumaki kasabay ng text size
+       na pinili ng user imbes na masira ang layout.
        --------------------------------------------------------------------- */
     --s-1:  0.25rem;
     --s-2:  0.5rem;
@@ -124,7 +122,7 @@
     --page-max: 1320px;
 
     /* ---------------------------------------------------------------------
-       RADIUS & DEPTH
+       RADIUS AT LALIM
        --------------------------------------------------------------------- */
     --r-xs:   8px;
     --r-sm:  11px;
@@ -142,12 +140,12 @@
 
     /* ---------------------------------------------------------------------
        MOTION
-       Springs are defined in js/motion.js as (damping, response) pairs, per
-       Apple's designer-facing parameters. The CSS durations below are only
-       for non-gestural state changes — hovers, colour fades, press feedback.
+       Nasa js/frontend/ui/motion.js ang springs (damping, response) ayon sa
+       Apple. Ang CSS durations dito ay para lang sa hindi gesture: hover,
+       fade ng kulay at press feedback.
        --------------------------------------------------------------------- */
     --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
-    --ease-in:  cubic-bezier(0.64, 0, 0.78, 0.39);   /* mirror of --ease-out */
+    --ease-in:  cubic-bezier(0.64, 0, 0.78, 0.39);   /* kabaligtaran ng --ease-out */
     --ease-std: cubic-bezier(0.4, 0.0, 0.2, 1);
 
     --dur-press: 110ms;
@@ -162,10 +160,10 @@
 }
 
 /* =========================================================================
-   ACCESSIBILITY PREFERENCES
-   Reduced motion is not "no feedback" — it is gentler, non-vestibular
-   feedback. Reduced transparency frosts the materials solid. These are
-   honoured; the colour scheme is not, because the shop is light only.
+   ACCESSIBILITY
+   Ang reduced motion ay hindi "walang feedback", mas malumanay lang. Sa
+   reduced transparency, solid na ang materials. Light lang ang shop kaya
+   hindi sinusunod ang dark mode.
    ========================================================================= */
 @media (prefers-reduced-transparency: reduce) {
     :root {

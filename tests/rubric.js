@@ -15,7 +15,7 @@
    The scanner blanks out comments and strings first, so a comment that
    names a built-in ("replaces .indexOf") is not mistaken for a call. It
    is written under the same rules it enforces: character by character,
-   with core.js helpers and no regular expressions.
+   with the site's own helpers (js/dsa/) and no regular expressions.
    Run: node tests/rubric.js
    ========================================================================= */
 
@@ -191,7 +191,7 @@ function otherNotations(relative) {
 }
 
 /* Uses of the Date built-in other than reading the clock: "new Date" is
-   allowed only inside readClock in core.js, Date.now() anywhere, and none
+   allowed only inside readClock in js/dsa/dates.js, Date.now() anywhere, and none
    of Date's calendar methods at all.     Time O(n) · Space O(n) */
 function dateMaths(relative) {
     var problems = [], code = codeOnly(t.readText(relative), problems), words = wordsOf(code), out = [];
@@ -200,25 +200,33 @@ function dateMaths(relative) {
         var word = words[w];
         if (word.afterDot && word.beforeParen && isIn(DATE_METHODS, word.word)) listAdd(out, relative + ':' + word.line + ' .' + word.word + '(');
         if (word.word === 'new' && w + 1 < words.length && words[w + 1].word === 'Date') {
-            var inClock = relative === 'js/core.js' && textHas(lines[word.line - 2] || '', 'function readClock');
+            var inClock = relative === 'js/dsa/dates.js' && textHas(lines[word.line - 2] || '', 'function readClock');
             if (!inClock) listAdd(out, relative + ':' + word.line + ' new Date');
         }
     }
     return out;
 }
 
-/* *.js files in a folder.                 Time O(n) · Space O(n) */
+/* *.js files in a folder and every folder inside it.
+                                           Time O(n) · Space O(n) */
 function scriptsIn(folder) {
     var names = fs.readdirSync(t.ROOT + folder), out = [];
     for (var i = 0; i < names.length; i++) {
-        var name = names[i];
-        if (name.length > 3 && textPart(name, name.length - 3) === '.js') listAdd(out, folder + '/' + name);
+        var name = names[i], inner = folder + '/' + name;
+        if (fs.statSync(t.ROOT + inner).isDirectory()) {
+            var deeper = scriptsIn(inner);
+            for (var d = 0; d < deeper.length; d++) listAdd(out, deeper[d]);
+        } else if (name.length > 3 && textPart(name, name.length - 3) === '.js') listAdd(out, inner);
     }
     return out;
 }
 
 /* ===================================================================== */
 var appFiles = scriptsIn('js'), testFiles = scriptsIn('tests');
+var loaded = t.siteScripts(), notLoaded = [];
+for (var af = 0; af < appFiles.length; af++) {
+    if (!isIn(loaded, textPart(appFiles[af], 3, appFiles[af].length - 3))) listAdd(notLoaded, appFiles[af]);
+}
 var toolFiles = t.fs.existsSync(t.ROOT + 'tools/reviewer') ? scriptsIn('tools/reviewer') : [];
 for (var tf = 0; tf < toolFiles.length; tf++) listAdd(testFiles, toolFiles[tf]);
 
@@ -227,6 +235,8 @@ for (var a = 0; a < appFiles.length; a++) {
     var appProblems = scanFile(appFiles[a]);
     check(appFiles[a], appProblems.length === 0, glue(appProblems, '; '));
 }
+
+check('every script in js/ is loaded by index.html', notLoaded.length === 0, glue(notLoaded, ', '));
 
 section('the same rules — tests/ and tools/');
 for (var b = 0; b < testFiles.length; b++) {

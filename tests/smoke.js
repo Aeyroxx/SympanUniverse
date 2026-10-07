@@ -100,7 +100,7 @@ async function journey(page) {
     await page.evaluate(function () {
         EMAIL_CONFIG.serviceId = ''; EMAIL_CONFIG.templateId = ''; EMAIL_CONFIG.publicKey = '';
     });
-    // The owner's account was built from js/email-config.js when the page started.
+    // The owner's account was built from js/data/email-config.js when the page started.
     ADMIN_EMAIL = await page.evaluate(function () { return accountById(1).email; });
     await shot(page, '01-home');
 
@@ -179,6 +179,21 @@ async function journey(page) {
     await page.click('#basketButton');
     await settle();
     check('the cart is called a cart', (await textOf(page, '#basketTitle')) === 'Your cart');
+    await page.click('#basketBody [data-edit-line="0"]');
+    await settle();
+    check('Edit opens the customiser on that line, ready to save', textHas(await textOf(page, '#productSheetTitle'), 'Edit') &&
+          textHas(await textOf(page, '#addToCart'), 'Save changes') &&
+          (await page.$eval('[data-count="12"]', function (b) { return b.getAttribute('aria-pressed'); })) === 'true');
+    await page.click('[data-color="matcha"]');
+    await page.click('#addToCart');
+    await settle();
+    check('saving puts the changed line back in the cart, still one line', textHas(await textOf(page, '#basketBody'), 'Matcha') &&
+          (await textOf(page, '#basketCount')) === '1' && (await page.$$('#basketBody .cart-line')).length === 1);
+    await page.click('#basketBody [data-edit-line="0"]');
+    await settle();
+    await page.click('[data-color="red"]');
+    await page.click('#addToCart');
+    await settle();
     await page.click('#basketFoot [data-step="details"]');
     await settle(300);
     await fillDetails(page, 'lara.flowers@gmail.com', '0917 555 7788');

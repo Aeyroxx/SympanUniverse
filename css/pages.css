@@ -1,5 +1,5 @@
 /* =========================================================================
-   PAGES — shop, admin and inspector layouts
+   PAGES · layout ng shop at ng desk
    ========================================================================= */
 
 /* -------------------------------------------------------------------------
@@ -12,9 +12,8 @@
     text-align: center;
 }
 .hero::before {
-    /* A still field of stars. Deliberately static: a slow looping drift in
-       the background is exactly the motion that triggers vestibular
-       discomfort, and it would earn nothing here. */
+    /* Mga bituin na hindi gumagalaw. Sinadya: yung mabagal na paulit-ulit na
+       galaw sa background ay nakakahilo sa iba, at wala namang naitutulong. */
     content: '';
     position: absolute; inset: -20% -10% auto;
     height: 140%;
@@ -49,7 +48,7 @@
 .trust-row svg { width: 1rem; height: 1rem; }
 
 /* -------------------------------------------------------------------------
-   CATALOG TOOLBAR
+   TOOLBAR NG CATALOGUE
    ------------------------------------------------------------------------- */
 .toolbar {
     position: sticky; top: 4rem; z-index: 40;
@@ -141,14 +140,14 @@
 }
 .swatch-more { font-size: var(--t-caption-size); color: var(--ink-4); }
 
-/* Card skeleton */
+/* Skeleton ng card */
 .card-skeleton { border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--line); }
 .card-skeleton .sk-media { aspect-ratio: 4 / 5; }
 .card-skeleton .sk-line { height: 0.75rem; margin: var(--s-3) var(--s-4) 0; border-radius: var(--r-pill); }
 .card-skeleton .sk-line:last-child { width: 55%; margin-bottom: var(--s-5); }
 
 /* -------------------------------------------------------------------------
-   PRODUCT DETAIL SHEET
+   PRODUCT SHEET
    ------------------------------------------------------------------------- */
 .detail-layout { display: grid; gap: var(--s-6); padding-bottom: var(--s-6); }
 @media (min-width: 62rem) {
@@ -156,7 +155,7 @@
     .sheet-full .sheet-body { padding-inline: var(--s-8); }
 }
 
-/* Gallery — a draggable track that snaps to the nearest frame. */
+/* Gallery: track na pwedeng i-drag at dumidikit sa pinakamalapit na litrato. */
 .gallery { position: relative; }
 .gallery-frame {
     position: relative;
@@ -216,7 +215,7 @@
 .gallery-thumbs button[aria-current="true"] { opacity: 1; border-color: var(--ink); }
 .gallery-thumbs img { width: 100%; height: 100%; object-fit: cover; }
 
-/* Variant picker — real photographs, not tinted approximations. */
+/* Pagpili ng variant: totoong litrato, hindi kinulayang tantya. */
 .variant-row { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .variant {
     display: inline-flex; align-items: center; gap: var(--s-2);
@@ -251,7 +250,7 @@
 @media (min-width: 40rem) { .addon-grid { grid-template-columns: 1fr 1fr; } }
 
 /* -------------------------------------------------------------------------
-   CART + CHECKOUT
+   CART AT CHECKOUT
    ------------------------------------------------------------------------- */
 .cart-fab {
     position: fixed; right: var(--s-5);
@@ -326,7 +325,7 @@
 .slot .slot-time { font-weight: 640; display: block; }
 .slot .slot-left { font-size: var(--t-caption-size); color: var(--ink-3); }
 
-/* Receipt */
+/* Resibo */
 .receipt {
     background: var(--surface);
     border-radius: var(--r-lg);
@@ -350,7 +349,7 @@
 .success-mark svg { width: 1.75rem; height: 1.75rem; }
 
 /* -------------------------------------------------------------------------
-   ADMIN
+   ORDER DESK
    ------------------------------------------------------------------------- */
 .login-screen {
     min-height: 100dvh;
@@ -486,7 +485,7 @@
 .ptr-key.rose { border-color: var(--rose); }
 .ptr-key.dash { border-style: dashed; border-color: var(--line-strong); }
 
-/* Heap drawn as the tree its array indices imply. */
+/* Heap na iginuhit bilang tree ayon sa index ng array. */
 .heap-tree { display: grid; gap: var(--s-4); justify-items: center; min-width: min-content; }
 .heap-level { display: flex; gap: var(--s-3); justify-content: center; }
 .heap-node {
@@ -557,9 +556,9 @@
 }
 
 /* -------------------------------------------------------------------------
-   NO PHOTOGRAPH YET
-   Two lines are on the shop's list but have not been shot. Say so plainly
-   rather than rendering a broken image.
+   WALA PANG LITRATO
+   May dalawang line sa listahan na wala pang litrato. Sinasabi na lang
+   nang diretso imbes na sirang image.
    ------------------------------------------------------------------------- */
 .card-media-wrap { position: relative; }
 .card-media-empty {
@@ -576,7 +575,7 @@
 .order-item-media .card-media-empty { aspect-ratio: auto; }
 
 /* -------------------------------------------------------------------------
-   SIZE PICKER — the shop prices by flower count, so the count is the control
+   SIZE PICKER · dami ng bulaklak ang basehan ng presyo kaya ito ang pinipili
    ------------------------------------------------------------------------- */
 .size-grid {
     display: grid;
@@ -657,7 +656,7 @@
 }
 
 /* -------------------------------------------------------------------------
-   ORDER CARD — the order desk's full view of one order
+   ORDER CARD · buong detalye ng isang order sa desk
    ------------------------------------------------------------------------- */
 .order-card {
     border: 1px solid var(--line);

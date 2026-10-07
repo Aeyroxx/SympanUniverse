@@ -1,21 +1,19 @@
 /* =========================================================================
-   APP — start-up and routing.
-
-   One page holds both the shop and the order desk, because the orders
-   live in this page's memory: a second page could never see them. The
-   address decides which one shows — index.html#admin opens the desk's
-   sign-in; every other address is the shop.
-   Depends on every other script.
+   APP · simula at routing
+   Iisang page lang ang shop at ang order desk kasi nasa memory ang mga
+   order at hindi madadala sa ibang page. #admin = desk, iba = shop.
    ========================================================================= */
 
 var SHOP_TITLE = 'Sýmpan Universe — Handcrafted Ribbon Bouquets';
 
-/* Close every open sheet, top first.     Time O(n²) · Space O(n) */
+// Sinasara lahat ng bukas na sheet, yung nasa taas muna.
+// Time O(n²) · Space O(n)
 function closeAllSheets() {
     while (openSheets.length > 0) sheetClose(openSheets[openSheets.length - 1]);
 }
 
-/*                                        Time O(n²) · Space O(n) */
+// Pakita yung shop.
+// Time O(n²) · Space O(n)
 function showShop(hash) {
     var wasHidden = $('#shopView').classList.contains('hidden');
     setHidden($('#adminView'), true);
@@ -29,24 +27,24 @@ function showShop(hash) {
     else window.scrollTo(0, 0);
 }
 
-/*                                        Time O(n²) · Space O(n) */
+// Shop o order desk, depende sa address (#admin).
+// Time O(n²) · Space O(n)
 function route() {
     closeAllSheets();
     if (location.hash === '#admin') showDesk();
     else showShop(location.hash);
 }
 
-/* Put each data-icon button's glyph in.  Time O(n)  · Space O(n) */
+// Nilalagay yung icon sa bawat data-icon na button.
+// Time O(n) · Space O(n)
 function fillIcons() {
     var buttons = $$('[data-icon]');
     for (var i = 0; i < buttons.length; i++) buttons[i].innerHTML = icon(buttons[i].getAttribute('data-icon'));
 }
 
-/* The shop's own housekeeping, so the owner doesn't have to: sign out a
-   desk left idle, void quotations left unpaid too long (emailing the
-   customer), then refresh what is on screen. Runs on start-up and every
-   minute.
-                                          Time O(n²) · Space O(n) */
+// Kusang ginagawa ng shop kada minuto: sign out ng idle na desk,
+// void ng hindi nabayarang quotation, tapos refresh.
+// Time O(n²) · Space O(n)
 function runAutomation() {
     checkDeskIdle(Date.now());
     var expired = expireQuotes(Date.now());
@@ -55,11 +53,12 @@ function runAutomation() {
     if (deskState.authed && !$('#adminView').classList.contains('hidden')) renderDesk();
 }
 
-/*                                        Time O(n²) per demo event replayed · Space O(n) */
+// Simula ng app: demo history, timers, at lahat ng init.
+// Time O(n²) bawat demo event · Space O(n)
 function boot() {
     seedShop(Date.now());
-    // The demo history is replayed silently; from here on, every order step
-    // emails the customer.
+    // Tahimik na pinapatakbo ang demo history; mula dito, bawat hakbang
+    // ng order may email na sa customer.
     mailEnabled = true;
     runAutomation();
     setInterval(runAutomation, 60000);

@@ -1,7 +1,7 @@
 /* =========================================================================
    COMPONENTS
-   Buttons, fields, cards, chips, sheets, toasts, badges.
-   Press feedback lives on :active so it fires on pointer-down, not release.
+   Buttons, fields, cards, chips, sheets, toasts at badges.
+   Nasa :active ang press feedback kaya sa pagpindot pa lang may reaksyon na.
    ========================================================================= */
 
 /* -------------------------------------------------------------------------
@@ -38,13 +38,13 @@
                 opacity var(--dur-fast) var(--ease-out),
                 transform var(--dur-press) var(--ease-out);
 }
-/* Instant, on the press itself. */
+/* Agad, sa mismong pagpindot. */
 .ui-btn:active:not(:disabled) { transform: scale(0.968); }
 .ui-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* Hover moves further from the page, not toward a fixed colour: darker on a
-   light canvas, brighter on a dark one. A hard-coded #000 here turned the
-   dark-mode button black-on-black. */
+/* Pag hover, mas lumalayo sa page imbes na fixed na kulay: mas maitim sa
+   maliwanag, mas maliwanag sa madilim. Nagka-black-on-black dati sa dark
+   mode nung naka-#000 dito. */
 .ui-btn-primary  { --btn-bg: var(--ink); --btn-fg: var(--on-ink); }
 .ui-btn-primary:hover:not(:disabled) { --btn-bg: var(--ink-hover); }
 
@@ -67,7 +67,7 @@
 .ui-btn-sm  { min-height: 2.125rem; padding: 0.5em 0.9em; font-size: var(--t-foot-size); }
 .ui-btn-block { width: 100%; }
 
-/* Circular icon button — used in chrome and on cards. */
+/* Bilog na icon button, gamit sa header at sa cards. */
 .ui-btn-icon {
     width: 2.5rem; height: 2.5rem;
     min-height: 0; padding: 0;
@@ -87,7 +87,7 @@
 .ui-btn-icon svg { width: 1.25rem; height: 1.25rem; }
 
 /* -------------------------------------------------------------------------
-   SEGMENTED CONTROL + CHIPS
+   SEGMENTED CONTROL AT CHIPS
    ------------------------------------------------------------------------- */
 .segmented {
     display: inline-flex;
@@ -200,7 +200,7 @@
 .field.is-invalid .input,
 .field.is-invalid .select { border-color: var(--rose-line); background: var(--rose-soft); }
 
-/* Search field with leading glyph */
+/* Search field na may icon sa unahan */
 .search {
     position: relative; display: flex; align-items: center;
 }
@@ -215,7 +215,7 @@
     width: 1.85rem; height: 1.85rem;
 }
 
-/* Checkbox / radio — custom mark, real input underneath for a11y */
+/* Checkbox o radio: sariling itsura, pero totoong input sa ilalim para sa a11y */
 .check {
     display: flex; align-items: flex-start; gap: var(--s-3);
     padding: 0.7rem 0.85rem;
@@ -287,7 +287,7 @@
 }
 
 /* -------------------------------------------------------------------------
-   BADGES / PILLS
+   BADGES AT PILLS
    ------------------------------------------------------------------------- */
 .badge {
     display: inline-flex; align-items: center; gap: 0.35em;
@@ -317,7 +317,7 @@
 }
 
 /* -------------------------------------------------------------------------
-   CARD / SURFACE
+   CARD AT SURFACE
    ------------------------------------------------------------------------- */
 .panel {
     background: var(--surface);
@@ -329,8 +329,8 @@
 .panel-lift { box-shadow: var(--shadow-2); border-color: transparent; }
 
 /* -------------------------------------------------------------------------
-   TRANSLUCENT CHROME  (apple-design §12)
-   Content scrolls *under* the bar; the bar is a material, not an opaque strip.
+   TRANSLUCENT NA HEADER  (apple-design §12)
+   Dumadaan ang content *sa ilalim* ng bar; material ang bar, hindi solid.
    ------------------------------------------------------------------------- */
 .app-nav {
     position: sticky; top: 0; z-index: var(--z-nav);
@@ -376,10 +376,9 @@
 .nav-link[aria-current="page"] { color: var(--ink); background: var(--surface-2); }
 
 /* -------------------------------------------------------------------------
-   SCRIM + SHEET
-   Modal work dims and pushes the background back. A sheet materialises —
-   blur and scale animate together so it reads as a material arriving,
-   never a flat opacity fade.
+   SCRIM AT SHEET
+   Pag modal, dumidilim at umaatras ang likod. Lumilitaw ang sheet na
+   sabay ang blur at scale, para parang totoong material na dumarating.
    ------------------------------------------------------------------------- */
 .scrim {
     position: fixed; inset: 0;
@@ -394,12 +393,10 @@
 }
 .scrim.is-open { opacity: 1; pointer-events: auto; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 
-/* A closed sheet is taken out of the layout entirely rather than hidden with
-   `visibility`. Visibility is inherited, and Chrome does not propagate that
-   change to descendants within the same tick — so code that opened a sheet
-   and immediately focused a control inside it was silently refused, leaving
-   keyboard users stranded on <body>. Display carries no such surprise, and
-   "not in the layout" is the honest description of a dismissed dialog. */
+/* Ang saradong sheet ay tinatanggal sa layout (display), hindi visibility.
+   Namamana kasi ang visibility at hindi agad naipapasa ng Chrome sa loob,
+   kaya dati hindi ma-focus ang control sa bagong bukas na sheet at naiiwan
+   ang keyboard user sa <body>. Walang ganitong problema ang display. */
 .sheet {
     position: fixed;
     z-index: var(--z-sheet);
@@ -411,7 +408,7 @@
 }
 .sheet.is-open { display: flex; }
 
-/* Bottom sheet — phones */
+/* Bottom sheet sa phone */
 .sheet-bottom {
     inset-inline: 0; bottom: 0;
     max-height: min(92dvh, 60rem);
@@ -420,7 +417,7 @@
     transform: translate3d(0, 100%, 0);
 }
 
-/* Side drawer — tablets and up */
+/* Side drawer sa tablet pataas */
 @media (min-width: 48rem) {
     .sheet-side {
         inset-block: 0; right: 0; left: auto;
@@ -432,7 +429,7 @@
     }
 }
 
-/* Full-height detail sheet */
+/* Buong taas na detail sheet */
 .sheet-full {
     inset-inline: 0; bottom: 0;
     height: min(94dvh, 64rem);
@@ -490,13 +487,11 @@
 }
 
 /* -------------------------------------------------------------------------
-   TOASTS — status, completion, warning, error
+   TOASTS · status, tapos, babala, error
    ------------------------------------------------------------------------- */
-/* Anchored under the nav rather than at the bottom edge.
-   Every sheet on this site carries its primary action in a footer pinned to
-   the bottom — a toast stacked there covers the one control the user is
-   reaching for, and because a toast accepts clicks it swallows the tap
-   entirely. The top strip is the only band no action ever occupies. */
+/* Nasa ilalim ng nav, hindi sa baba. Nasa footer sa baba kasi ang main
+   button ng bawat sheet, at kung doon ang toast, matatakpan at makakain
+   pa ang tap. Sa taas lang walang action kahit kailan. */
 .ui-toast-layer {
     position: fixed;
     left: 50%;
@@ -539,7 +534,7 @@
 .ui-toast-text span { display: block; font-size: var(--t-foot-size); color: var(--ink-3); font-weight: 400; }
 
 /* -------------------------------------------------------------------------
-   SKELETON + EMPTY STATE
+   SKELETON AT WALANG LAMAN
    ------------------------------------------------------------------------- */
 .skeleton {
     background: var(--skeleton);

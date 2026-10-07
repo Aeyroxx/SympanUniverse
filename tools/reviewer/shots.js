@@ -10,7 +10,11 @@
 var fs = require('fs');
 var vm = require('vm');
 var ROOT = __dirname + '/../../';
-vm.runInThisContext(fs.readFileSync(ROOT + 'js/core.js', 'utf8'), { filename: 'core.js' });
+// The site's own helpers (js/dsa/ and escapeHtml), loaded into this process.
+var SITE_HELPERS = ['dsa/arrays', 'dsa/strings', 'dsa/numbers', 'dsa/dates', 'dsa/hashing', 'frontend/ui/dom'];
+for (var sh = 0; sh < SITE_HELPERS.length; sh++) {
+    vm.runInThisContext(fs.readFileSync(ROOT + 'js/' + SITE_HELPERS[sh] + '.js', 'utf8'), { filename: SITE_HELPERS[sh] + '.js' });
+}
 var puppeteer = require('puppeteer-core');
 var wait = require('timers/promises').setTimeout;
 

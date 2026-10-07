@@ -18,7 +18,7 @@
 
 .desk-bar { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-bottom: var(--s-3); }
 
-/* ---- Completed, by day -------------------------------------------------- */
+/* ---- Mga tapos, ayon sa araw -------------------------------------------- */
 .day-group + .day-group { margin-top: var(--s-8); }
 .day-head {
     display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-3);
@@ -117,18 +117,18 @@
 .price-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--s-3); align-items: end; }
 .price-row .field + .field { margin-top: 0; }
 
-/* Eight figures: two rows of four on a desk, four rows of two on a phone. */
+/* Walong numero: dalawang row ng apat sa desktop, apat na row ng dalawa sa phone. */
 .desk-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (min-width: 48rem) { .desk-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
-/* Phones: brand and sign-out on one row, the order search on its own. */
+/* Sa phone: brand at sign-out sa isang row, hiwalay ang search ng order. */
 #logoutButton { white-space: nowrap; margin-left: auto; }
 @media (max-width: 40rem) {
     #adminConsole .nav-inner { flex-wrap: wrap; row-gap: var(--s-2); padding-block: var(--s-2); }
     .admin-find { order: 3; flex: 1 1 100%; max-width: none; }
 }
 
-/* Order editor: add-ons sit in a row; buttons beside selects stay one line. */
+/* Order editor: naka-row ang add-ons, isang linya ang button sa tabi ng select. */
 .edit-addons { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s-2); margin-top: var(--s-2); }
 .edit-addons .field { flex: 1 1 14rem; margin-top: 0; }
 button[data-add-item] { white-space: nowrap; flex: 0 0 auto; }
@@ -136,7 +136,7 @@ button[data-add-item] { white-space: nowrap; flex: 0 0 auto; }
 /* ---- Sign-in code -------------------------------------------------------- */
 .otp-input { font-size: 1.5rem; letter-spacing: 0.4em; text-align: center; }
 
-/* ---- Overview by date ---------------------------------------------------- */
+/* ---- Overview ayon sa date ------------------------------------------------ */
 .now-strip {
     display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3);
     padding: var(--s-3) var(--s-4); margin-bottom: var(--s-5);

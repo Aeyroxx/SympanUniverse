@@ -18,8 +18,19 @@ var ROOT = __dirname + '/../../';
 var BASE = new Date(2026, 9, 5, 12, 0, 0, 0);
 var NOW = BASE.getTime();
 var HOUR = 3600000;
-var FILES = ['core', 'structures', 'algorithms', 'data', 'email-config', 'store', 'audit', 'accounts', 'orders', 'production', 'notify', 'tracking', 'editing', 'reports',
-             'seed', 'mail', 'motion', 'ui', 'receipt', 'shop-catalog', 'admin-signin', 'admin-reset'];
+/* The scripts the traces need, read from index.html so they never drift:
+   everything it loads before the shop and desk screens (the DSA code, the
+   data, the backend and the UI kit).      Time O(n²) · Space O(n) */
+function traceFiles() {
+    var pieces = cutText(fs.readFileSync(ROOT + 'index.html', 'utf8'), '<script src="js/'), out = [];
+    for (var i = 1; i < pieces.length; i++) {
+        var name = cutText(pieces[i], '.js"')[0];
+        if (beginsWith(name, 'frontend/shop/') || beginsWith(name, 'frontend/desk/') || name === 'app') break;
+        listAdd(out, name);
+    }
+    return out;
+}
+var FILES = traceFiles();
 
 /* A fresh sandbox with the site loaded and the demo history replayed.
                                            Time O(n) · Space O(n) */

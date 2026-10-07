@@ -24,11 +24,11 @@ is not typed in as finished records. It is played through the real lifecycle
 functions, so its receipts, queues and best sellers are genuine.
 
 **Desk accounts.** Everyone who works the desk has their own account. The
-credentials are kept in an array, `staffAccounts` in `js/accounts.js`:
+credentials are kept in an array, `staffAccounts` in `js/backend/state.js` (the functions are in `js/backend/m12-order-desk.js`):
 
 | Account | Email | Password | Role |
 | --- | --- | --- | --- |
-| Shop owner | `adminEmail` in `js/email-config.js` | `admin123` | Owner: everything, including Accounts and Logs |
+| Shop owner | `adminEmail` in `js/data/email-config.js` | `admin123` | Owner: everything, including Accounts and Logs |
 | Bea Cruz (demo) | `bea.cruz@example.com` | `Staff2026` | Staff: orders, production and products |
 
 - The array is in id order. A new account takes the next id, so appending
@@ -98,7 +98,7 @@ emailed sign-in code. Like all data here, accounts and passwords live in the
 page's memory, so a reload brings back the demo accounts and passwords. To
 change a password for good, open the browser console on the page and run
 `passwordHash('your-salt', 'your new password')`. Then put the salt and the
-number into that account's row of `STAFF_SEED` in `js/data.js`.
+number into that account's row of `STAFF_SEED` in `js/data/desk-security.js`.
 
 Be clear about what this is: it keeps customers off the desk, but it is
 **not** real security. The whole site runs in the browser, so anyone can read
@@ -106,7 +106,7 @@ its code, and real access control needs a server with a proper password hash
 (bcrypt or Argon2).
 
 **Email** goes out through [EmailJS](https://www.emailjs.com) straight from
-the browser. Fill in the three IDs at the top of `js/email-config.js` to
+the browser. Fill in the three IDs at the top of `js/data/email-config.js` to
 switch it on; the setup steps are in that file. The free plan covers 200
 emails a month. Until then, every email is kept in the desk's **Outbox**,
 marked "not sent", and the sign-in code is shown on screen, clearly labelled.
@@ -125,7 +125,7 @@ server can. To limit it:
 - once the site is on a web address, allow only that address.
 
 Pages opened straight from a file can't be restricted by address. The details
-are in `js/email-config.js`.
+are in `js/data/email-config.js`.
 
 **Personal data.** The shop asks only for what an order needs: name, email,
 mobile, and an address for a delivery.
@@ -153,7 +153,7 @@ mobile, and an address for a delivery.
   can't be placed without both.
 - Each order records the agreement in `order.consent`: which version of the
   notice and of the terms, and when. The order's history records it too.
-- To change the notice, edit `PRIVACY_NOTICE` in `js/data.js` and raise
+- To change the notice, edit `PRIVACY_NOTICE` in `js/data/privacy.js` and raise
   `PRIVACY_NOTICE_VERSION`; for the terms, `ORDER_TERMS` and
   `ORDER_TERMS_VERSION`. The last section gives the shop's own email and
   page as the contact.
@@ -200,6 +200,90 @@ mobile, and an address for a delivery.
 | Recursion | sum a list | O(n) | O(n) call stack |
 | Greedy bills | fewest notes | O(n) | O(n) |
 
+### Every other feature, in the order of the flow
+
+Besides modules 1 to 12 above, these are all the features of the site, in
+the order a visit flows, from opening it to what runs by itself. (Module 13
+explains the security pieces in full.) Time and Space are copied from each
+function's own note in the code (n is what that function goes through). The
+same list, built straight from the code, is Appendix D of the defense
+reviewer; its data is `tools/reviewer/features.js`.
+**1. Opening the site**
+
+| # | Feature | Structure / algorithm | Time | Space | Code |
+| --- | --- | --- | --- | --- | --- |
+| 1 | **Demo history replay** — At start-up six weeks of orders are played through the real order functions, so receipts, queues and best sellers are genuine. | Every request, quote, payment, completion and void becomes an event; insertion sort puts them in time order, then each is replayed. | O(n²) | O(n) | `data/demo-history.js` seedEvents() |
+| 2 | **Calendar maths without Date** — Lead times, weekdays, month lengths and leap years for every date on the site. | A date becomes a day number; adding days is adding numbers, then converting back. Date only reads the clock. | O(1) | O(1) | `dsa/dates.js` addDays() |
+| 3 | **Privacy banner and Privacy Notice** — A translucent banner cites the Data Privacy Act; one sheet shows the Privacy Notice and the order terms. | The notice is an array of sections; one pass over it writes the sheet. | O(n) | O(n) | `frontend/shop/privacy.js` renderPrivacy() |
+| 4 | **Sheets and swipes that follow the finger** — Every sheet, the cart and the photo gallery move on springs that can be grabbed and reversed mid-motion. | Each animation frame steps every moving spring once (n = springs in motion). | O(n) | O(n) | `frontend/ui/motion.js` motionTick() |
+| 5 | **Flick projection and rubber-band edges** — A flick decides where a sheet lands; dragging past an edge resists instead of stopping hard. | A closed formula on the release speed (exponential deceleration); a second one for the edge resistance. | O(1) | O(1) | `frontend/ui/motion.js` projectMomentum() |
+
+**2. Browsing the shop**
+
+| # | Feature | Structure / algorithm | Time | Space | Code |
+| --- | --- | --- | --- | --- | --- |
+| 6 | **"Starts at" price** — Each flower card shows its lowest price on the price list. | One pass over the price rows, keeping the smallest (linear scan for the minimum). | O(n) (one pass over the price rows) | O(1) | `backend/m01-catalogue-best-sellers.js` lowestOffer() |
+| 7 | **Sample photos with credits** — Products the shop has not photographed show an openly licensed sample photo, badged and credited. | Linear search of the photo credits by file name. | O(n) | O(n) | `backend/m01-catalogue-best-sellers.js` photoCredit() |
+| 8 | **Peso amounts** — Every price is written "₱1,234.50". | The digits are grouped in threes by hand (n = digits), with no toLocaleString. | O(n) | O(n) | `dsa/numbers.js` peso() |
+
+**3. Cart and checkout**
+
+| # | Feature | Structure / algorithm | Time | Space | Code |
+| --- | --- | --- | --- | --- | --- |
+| 9 | **Edit a cart line** — Each line in the cart has an Edit button: the customiser opens with that line’s choices, and "Save changes" puts the changed line back in its place. | The linked list keeps its nodes in an array, so the node is reached by its index and its value replaced; the cart’s order does not change. | O(1) | O(1) | `backend/m06-cart.js` basketReplace() |
+| 10 | **Today’s prices in the cart** — If the owner changes a price after something was added, checkout charges the current price. | Walk the cart’s linked list; look up each line’s product (linear search) and price it again. | O(n²) | O(n) | `backend/m06-cart.js` repricedCart() |
+| 11 | **Disabled products leave the cart** — A product the owner disables can no longer be ordered, even if it is already in a cart. | Keep the cart lines whose product is missing or disabled (filter + linear search per line). | O(n²) | O(n) | `backend/m06-cart.js` unavailableBasketItems() |
+| 12 | **Earliest ready date and rush** — The first date offered is today plus the longest processing time in the cart, or tomorrow for a rush order (+₱50). | Linear scan for the largest lead time (each line’s product looked up), then day-number arithmetic. | O(n²) | O(1) | `backend/m07-checkout-delivery.js` earliestDate() |
+| 13 | **Weather and schedule notes** — Wherever a date or time is shown — checkout, confirmation, Track order, receipts, emails — a note says weather and traffic can move it. | A fixed note per mode (pickup or delivery). | O(1) | O(1) | `backend/m07-checkout-delivery.js` scheduleNote() |
+| 14 | **Privacy and terms agreement** — Two separate unticked boxes at checkout; the order records which versions were agreed to, and when. | Two constant-time checks inside the form check (the whole check is shown); the agreement is stored on the order. | O(n²) | O(n) | `backend/m07-checkout-delivery.js` validateRequest() |
+| 15 | **Price-list orders need no quotation** — A cart of price-list bouquets is priced at once and paid at checkout; only gifts wait for a quotation. | Each line priced from the price list (linear look-ups); the subtotal is a recursive sum. | O(n²) | O(n) | `backend/m07-checkout-delivery.js` autoPrice() |
+
+**4. After ordering (the customer)**
+
+| # | Feature | Structure / algorithm | Time | Space | Code |
+| --- | --- | --- | --- | --- | --- |
+| 16 | **Cancel from Track order** — A request or an unpaid quotation can be cancelled by the customer; it is kept on record. | The order leaves the quote queue (the circular queue is rebuilt without it) and is marked voided. | O(n) | O(n) | `backend/m11-order-records.js` voidOrder() |
+| 17 | **Follow your parcel** — Once a courier delivery is marked ready and the desk adds tracking, Track order shows the courier, the parcel number and a safe link. | Constant checks on the order, then the courier’s record by linear search. | O(n) | O(n) | `frontend/shop/track-order.js` trackCourierHtml() |
+| 18 | **Failed look-ups are logged** — A Track order search that matches nothing is written to the security log (the tracking number only). | Appended at the end of the log array. | O(n) | O(1) | `backend/m13-security-logs.js` logSecurity() |
+
+**5. Signing in to the order desk**
+
+| # | Feature | Structure / algorithm | Time | Space | Code |
+| --- | --- | --- | --- | --- | --- |
+| 19 | **Desk accounts (credentials array)** — Each person has their own account; the credentials are an array in id order. | A hash table maps the email to the account id; binary search finds the id in the array. | O(1) average + O(log n) | O(n) | `backend/m12-order-desk.js` accountByEmail() |
+| 20 | **Salted password hashes** — No password is stored: only FNV-1a over the account’s own salt and the password, 200 rounds. | Hashing, repeated a fixed number of rounds (n = characters). | O(n) (PASSWORD_ROUNDS is fixed) | O(n) | `backend/m12-order-desk.js` passwordHash() |
+| 21 | **Pause after five wrong passwords** — Five wrong passwords in a row pause that email for 30 seconds; other people can still sign in. | Hash table: the email typed → its count, streak and pause. | O(1) average + O(n) for the text | O(1) | `backend/m13-security-logs.js` noteFailedSignIn() |
+| 22 | **At most six codes an hour** — Sign-in and reset codes to one address are limited, and starting again does not reset the count. | Hash table: email → codes sent in the current hour (a fixed-window counter). | O(1) average + O(n) | O(1) | `backend/m13-security-logs.js` canSendCode() |
+| 23 | **Forgot password** — An emailed six-digit code, then a new password; the screen answers the same for any email. | The code is compared by its hash; the password rules are checked character by character. | O(n) | O(n) | `backend/m13-security-logs.js` completePasswordReset() |
+| 24 | **Tabs by role** — Owners see every tab; staff see orders, production and products, but not the Logs or other accounts. | Filter the tab list by the signed-in role. | O(n) | O(n) | `frontend/desk/desk.js` deskTabs() |
+
+**6. Working at the desk (tab by tab)**
+
+| # | Feature | Structure / algorithm | Time | Space | Code |
+| --- | --- | --- | --- | --- | --- |
+| 25 | **Find an order** — Type SU-215 in the desk’s search box to open that order. | Binary search on the order number (the orders array is always sorted). | O(log n) + O(n) for the text | O(n) | `backend/orders.js` orderByRef() |
+| 26 | **Edit an order, with a revision log** — Items, specs, fees, schedule, contact and address can be changed; each change is logged as "field: old → new". | Old and new are compared line by line and field by field. | O(n²) | O(n) | `backend/m12-order-editing.js` editOrder() |
+| 27 | **Courier tracking** — The desk adds the courier’s parcel number and/or link; the customer is emailed. | The number and the link are checked character by character (https only, the courier’s own site). | O(n) | O(n) | `backend/m10-production-tracking.js` setCourierTracking() |
+| 28 | **Edit products** — Names, descriptions, processing time, materials, images, options and prices. | Every field validated; the price list checked against the counts each arrangement offers. | O(n²) | O(n) | `backend/m01-catalogue-best-sellers.js` updateProduct() |
+| 29 | **Disable or enable a product** — Products are disabled, never deleted, so their history stays. | Linear search for the product, then a flag. | O(n) | O(1) | `backend/m01-catalogue-best-sellers.js` setProductActive() |
+| 30 | **Send failed emails again** — One button in the Outbox queues every failed email again (never a sign-in or reset code). | One pass over the outbox, enqueueing each failed email in the circular mail queue. | O(n²) | O(n) | `backend/m09-payment-receipts-email.js` retryFailedMail() |
+| 31 | **Who did what (audit log)** — Every order step, product change, sign-in step and account change is one log entry with who did it. | Append-only array: added at the end, so it is always in time order. | O(n) for the actor's text | O(1) | `backend/m13-security-logs.js` logEvent() |
+| 32 | **Logs tab: newest first, filter, search** — Everything / Security / Orders & products, and a search box. | Read the log from the back (no sort), keep one kind, then linear search with naive string matching. | O(n²) (naive string matching on every entry) | O(n) | `backend/m13-security-logs.js` logEntries() |
+| 33 | **Last 24 hours** — Wrong passwords, pauses, wrong codes, password changes and failed look-ups in the last day. | Walk back from the newest entry and stop at the first one older than a day. | O(n) | O(1) | `backend/m13-security-logs.js` recentSecurityCounts() |
+| 34 | **Wrong passwords by email** — Which emails had wrong passwords, most first. | The hash table’s rows, then insertion sort by count. | O(n²) | O(n) | `backend/m13-security-logs.js` failedSignInRows() |
+| 35 | **Download the logs as CSV** — What is shown, as a spreadsheet file; typed text can never run as a formula. | One pass over the entries, each field quoted and checked. | O(n) | O(n) | `backend/m13-security-logs.js` logCsv() |
+| 36 | **Add an account** — An owner adds a person with a temporary password; emails and names must be unique. | Append to the credentials array (the next id keeps it sorted) and index the email in the hash table. | O(n) | O(n) | `backend/m12-order-desk.js` addStaffAccount() |
+| 37 | **Disable or enable an account** — Nobody can disable themselves, and the last active owner stays. | Binary search for the account, then a count of the active owners. | O(n) | O(1) | `backend/m12-order-desk.js` setAccountActive() |
+| 38 | **Change your own password** — The current password first; five wrong ones sign the person out. | Salted hash compare, then the password rules character by character. | O(n) | O(n) | `backend/m12-order-desk.js` changeOwnPassword() |
+
+**7. Running by itself**
+
+| # | Feature | Structure / algorithm | Time | Space | Code |
+| --- | --- | --- | --- | --- | --- |
+| 39 | **Unpaid quotations expire** — Every minute, quotations unpaid for three days are voided by "System" and the customer is emailed. | Filter the quoted orders by age, then void each one. | O(n²) | O(n) | `backend/m11-order-records.js` expireQuotes() |
+| 40 | **Idle sign-out** — The desk signs itself out after 15 minutes without a tap or a key. | Compare the time of the last activity with the clock, every minute. | O(n) | O(1) | `frontend/desk/desk.js` checkDeskIdle() |
+| 41 | **Hash tables that grow** — The sign-in tables are keyed by whatever people type, so they double their buckets once they hold more than two keys per bucket. | Rehash every key into twice the buckets; rare, so adding stays O(1) amortised. | O(n) | O(n) | `dsa/hash-table.js` hashGrow() |
+
 ### How complexity is written (the course rules)
 
 Only the four notations from class are used: **O(1), O(log n), O(n) and
@@ -218,13 +302,16 @@ and sums such as "O(log n) + O(n)".
   work inside a loop over records. These lists are part of the program's
   set-up, not data that grows.
 - Where an O(log n) step runs once per item (a binary search per queued id)
-  the note says "O(n²) at most".
+  the note says "O(n²) pinakamarami" ("at most").
+- The notes in the code are in Tagalog like the rest of the comments
+  ("O(n) sa text" means O(n) in the length of the text). The tables in this
+  README and in the reviewer give the same notes in English.
 
 Every function in `js/` carries its own `Time O(…) · Space O(…)` note.
 `tests/rubric.js` fails if one is missing, if any other notation appears
 (no O(n log n), O(k), O(i·s) …), or if the `Date` built-in is used for
 anything but reading the clock — all date maths is hand-written day-number
-arithmetic (`dayNumber`, `dateOfDayNumber` in `js/core.js`).
+arithmetic (`dayNumber`, `dateOfDayNumber` in `js/dsa/dates.js`).
 
 ```
 Sýmpan Universe
@@ -351,7 +438,7 @@ found online, until the shop photographs its own. Each one:
 No openly licensed photograph of an actual beer-in-can gift cake could be
 found. The one used shows cans stacked in round tiers, which is how the cake
 is built. Replace it with a photo of the shop's own cake from the Products tab.
-The credits are kept in `PHOTO_CREDITS` (`js/data.js`) and in
+The credits are kept in `PHOTO_CREDITS` (`js/data/catalog.js`) and in
 `assets/products/CREDITS.md`. The files' camera and location metadata was
 removed.
 
@@ -388,7 +475,7 @@ time is given:
 - in the request, confirmation, "on its way" and tracking emails.
 
 The wording is in `SCHEDULE_NOTE_DELIVERY` and `SCHEDULE_NOTE_PICKUP` in
-`js/data.js`.
+`js/data/delivery.js`.
 
 **Courier tracking.** Once a courier has the parcel, the desk attaches its
 tracking number, its tracking link, or both, with **Add tracking** on any paid
@@ -498,7 +585,7 @@ the number **Sold**.
 | No built-in helpers | None of `push pop shift unshift splice slice concat sort reverse indexOf lastIndexOf includes find findIndex filter map forEach reduce some every join`, nor `search split replace trim toLowerCase toUpperCase padStart substring`, nor regular expressions |
 | Time and space complexity | Stated on every function |
 
-The security and audit logs (`js/audit.js`) are one **append-only array**:
+The security and audit logs (`js/backend/m13-security-logs.js`) are one **append-only array**:
 entries are only ever added at the end, in the order things happen, so the
 log is already in time order.
 
@@ -518,7 +605,7 @@ log is already in time order.
 blanks out comments and strings first, so a comment that names a built-in is
 not counted as a call.
 
-The replacements are written once, in `js/core.js`:
+The replacements are written once, in `js/dsa/` (`arrays.js`, `strings.js`, `numbers.js` and `dates.js`):
 
 | Instead of | The site uses |
 | --- | --- |
@@ -548,39 +635,42 @@ css/
   tokens.css · base.css · components.css · pages.css   design system
   shop.css               customiser, request, tracking, receipts
   desk.css               the order desk
-js/                      loaded in this order
-  core.js                hand-written replacements for the banned built-ins
-  structures.js          linked list, circular queue, min-heap, stack, tree, hash table
-  algorithms.js          insertion sort, selection sort, binary and linear search, recursion, greedy
-  data.js                colours, categories, products, add-ons, delivery, payment, privacy notice
-  email-config.js        the three EmailJS IDs and the owner's email (edit this)
-  store.js               the in-memory state, products, photos, basket, delivery, sales
-  audit.js               the security and audit log (append-only), wrong passwords and codes per email
-  accounts.js            desk accounts: the credentials array, email index, salted password hashes
-  orders.js              the order lifecycle, steps 1–3: request, quotation, payment and receipts
-  production.js          steps 4–5: production lanes, "Mark ready" and undo, voids; dashboard figures
-  notify.js              the emails each order step writes, queued for sending
-  tracking.js            courier parcel numbers and links on courier deliveries
-  editing.js             order and product editing
-  reports.js             the Overview's figures for a day, month or year
-  seed.js                six weeks of history, played through the lifecycle
-  mail.js                sends queued emails through EmailJS
-  motion.js              springs and drag tracking
-  ui.js                  icons, toasts, sheets, confirmations
-  receipt.js             receipts and printing
-  shop-catalog.js        catalogue, best sellers, tree filter, search, sort
-  shop-product.js        the customiser
-  shop-basket.js         the cart and checkout
-  shop-track.js          tracking, accepting quotations, paying
-  shop-privacy.js        the Data Privacy Notice, the order terms and the banner
-  admin-signin.js        email and password, then the emailed code
-  admin-reset.js         "Forgot password?": an emailed reset code, then a new password
-  admin-desk.js          tabs and order lists
-  admin-overview.js      the Overview by day, month or year, and the Outbox
-  admin-logs.js          the Logs tab: 24-hour summary, filters, search, CSV
-  admin-account.js       Accounts / My account: change password, add and disable accounts
-  admin-orders.js        order details, quotation, editing, payments, voids
-  admin-products.js      product editing, disable and enable
+js/                      loaded in this order (index.html lists every script)
+  dsa/                   the DSA guide: our own built-ins, every data structure and algorithm
+    arrays.js · strings.js · numbers.js · dates.js   replacements for the banned built-ins; dates without Date maths
+    hashing.js           FNV-1a
+    linked-list.js · circular-queue.js · min-heap.js · stack.js · n-ary-tree.js · hash-table.js
+    sorting.js · searching.js · recursion.js · greedy.js
+  data/                  fixed data, edited by hand
+    catalog.js           colours, arrangements, categories, products, add-ons, sample-photo credits
+    delivery.js          delivery areas, couriers, time slots, schedule notes
+    shop-rules.js        payments, rush fee, bills, shop info, quotation expiry
+    desk-security.js     the desk accounts' seed (hashes only) and every sign-in limit
+    privacy.js           the Privacy Notice and the order terms
+    email-config.js      the three EmailJS IDs and the owner's email (edit this)
+    demo-history.js      six weeks of orders, played through the real modules at start-up (loaded after backend/)
+  backend/               the shop's logic, one file per module
+    state.js             every array and structure the shop keeps (the "database")
+    orders.js            what every order has: status, history, totals, look-up by number
+    m01-catalogue-best-sellers.js    products, "Starts at", best sellers, product editing
+    m02-category-navigation.js       the category tree filter
+    m03-search-sort.js               the search box and the sort menu
+    m04-flower-customiser.js         price list, the 160 photographs, add-ons, flower items
+    m05-gift-customiser.js           quote products and the picture bouquet
+    m06-cart.js                      the cart (linked list), including editing a line
+    m07-checkout-delivery.js         delivery fees, dates and slots, the checkout check, placing an order
+    m08-quotation-desk.js            the quote queue and the quotation
+    m09-payment-receipts-email.js    GCash payments, receipts, every email and sending them
+    m10-production-tracking.js       rush heap, standard queue, Track order look-up, courier tracking
+    m11-order-records.js             undo, completed by date, voids, quotation expiry
+    m12-order-desk.js                sign-in, desk accounts, the Overview's figures
+    m12-order-editing.js             editing an order at the desk
+    m13-security-logs.js             the security and audit log, sign-in limits, password reset
+  frontend/              the screens
+    ui/                  dom.js · motion.js · toasts.js · sheets.js · parts.js · receipt.js
+    shop/                catalog.js · product.js · cart.js · track-order.js · privacy.js
+    desk/                sign-in.js · password-reset.js · desk.js · overview.js · outbox.js · logs.js
+                         account.js · order-sheet.js · products.js
   app.js                 start-up and routing
 tests/                   Node checks — see tests/README.md
 docs/reviewer/           the defense reviewer (PDF, and index.html)
@@ -590,7 +680,19 @@ _backup-original/        earlier versions, kept for reference
 ```
 
 Scripts are ordinary `<script src>` tags in dependency order, not ES modules,
-so the site works when opened straight from the filesystem.
+so the site works when opened straight from the filesystem. The tests read
+that order from `index.html`, and the rubric fails if a script in `js/` is
+not loaded.
+
+**Comments.** The comments in the code are short and in Tagalog. Every
+function has one or two lines on what it does, then its `Time` and `Space`
+on the line just above it, for example:
+
+```js
+// Account gamit yung email: hash table muna, tapos binary search.
+// Time O(1) average + O(log n) · Space O(n)
+function accountByEmail(email) {
+```
 
 ---
 
@@ -614,7 +716,7 @@ defense reviewer:
 
 - a cover with the four parts of the system and the modules in each;
 - **Start here**: how to use the reviewer, how to run the demo (the owner's
-  sign-in email is read from `js/email-config.js`), and the contents;
+  sign-in email is read from `js/data/email-config.js`), and the contents;
 - a **system overview**: the customer and owner flow, how the program is built,
   the data, and a table of the project rules and how the code meets each one;
 - a **DSA primer** page with a small picture of every structure and algorithm;
@@ -627,13 +729,19 @@ defense reviewer:
   6 justification, 7 demonstration (live steps, screenshots and a trace of the
   real code), and a code walkthrough (the real functions with their line
   numbers, each step explained, and their time and space);
-- appendices: a complexity summary of all twelve modules and how complexity is
-  counted, general panel questions, a glossary and a file map.
+- appendices: a complexity summary of all thirteen modules and how complexity
+  is counted, general panel questions, a glossary and a file map, and every
+  other feature of the site in the order of the flow (Appendix D).
+
+The 41 other features are listed in `tools/reviewer/features.js`. Each entry
+names the function that does the work, and the build copies that function's
+Time and Space from the code.
 
 To show who presents which part, put each member's name in `member` in the
 `PARTS` list of `tools/reviewer/content.js`, then rebuild.
 
-Only the explanations are written by hand (`tools/reviewer/content.js`). The
+Only the explanations are written by hand (`tools/reviewer/content.js`,
+`modules-a.js`, `modules-b.js` and `features.js`). The
 rest comes from the code itself:
 
 - code, line numbers and complexity notes are read from `js/`;

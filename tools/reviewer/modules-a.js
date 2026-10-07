@@ -11,7 +11,7 @@ module.exports = [
 {
     id: 'm01', no: 1, part: 1, title: 'Catalogue & Best Sellers', structure: 'Hash table · Selection sort',
     screens: 'Home page — the "Best sellers" strip and every product card; the Overview’s best sellers (order desk)',
-    files: 'js/store.js (salesTally, salesRank, topSellers) · js/algorithms.js (selectionSortDesc) · js/shop-catalog.js',
+    files: 'js/backend/m01-catalogue-best-sellers.js (salesTally, salesRank, topSellers) · js/dsa/sorting.js (selectionSortDesc) · js/frontend/shop/catalog.js',
     data: 'orders — array sorted by order number; products — 10 records; a hash table product id → tally row',
     summary: ['Hash-table tally · selection sort (stable)', 'O(n²)', 'O(n)'],
     business: [
@@ -55,7 +55,7 @@ module.exports = [
     shots: [['m01-best', 'The best-seller strip, ranked from paid orders'], ['m01-card', 'A product card with its "sold" count']],
     trace: 'bestSellers', traceTitle: 'the best-seller ranking',
     walk: [
-        { file: 'js/store.js', fn: 'salesTally', about: 'Counts, for every product, how many pieces were sold and in how many orders.', steps: [
+        { file: 'js/backend/m01-catalogue-best-sellers.js', fn: 'salesTally', about: 'Counts, for every product, how many pieces were sold and in how many orders.', steps: [
             { at: 'var out = [], rowFor = hashCreate(31);', text: 'A list of rows, and a hash table to find a row by product id.' },
             { at: "hashPut(rowFor, String(products[p].id), row);", text: 'Make one row per product and index it by the product id.' },
             { at: 'if (!countsAsSale(orders[o]) || (include && !include(orders[o]))) continue;', text: 'Skip orders that are not paid or completed — voided and unpaid ones never count.' },
@@ -63,21 +63,21 @@ module.exports = [
             { at: 'hit.units += items[i].quantity;', text: 'Add the line’s pieces to that product.' },
             { at: 'if (hit.lastOrder !== o) { hit.orders++; hit.lastOrder = o; }', text: 'Count the order once per product, however many lines it has.' }
         ] },
-        { file: 'js/store.js', fn: 'salesRank', about: 'Turns a row into one number so the sort can compare rows.', steps: [
+        { file: 'js/backend/m01-catalogue-best-sellers.js', fn: 'salesRank', about: 'Turns a row into one number so the sort can compare rows.', steps: [
             { at: 'return row.units * 100000 + row.orders;', text: 'Units dominate; the order count only matters when units tie.' }
         ] },
-        { file: 'js/algorithms.js', fn: 'selectionSortDesc', about: 'The selection sort itself — largest key first, and stable.', steps: [
+        { file: 'js/dsa/sorting.js', fn: 'selectionSortDesc', about: 'The selection sort itself — largest key first, and stable.', steps: [
             { at: 'var work = copyArray(records);', text: 'Sort a copy, so the original tally is untouched.' },
             { at: 'for (var i = 0; i < work.length - 1; i++)', text: 'Pass i fills position i.' },
             { at: 'if (countOf(work[j]) > countOf(work[best])) best = j;', text: 'Scan everything after i for the largest key. Strictly greater keeps ties in their old order.' },
             { at: 'for (var k = best; k > i; k--) work[k] = work[k - 1];', text: 'Shift the items between i and best one place right…' },
             { at: 'work[i] = held;', text: '…and drop the largest into position i. Shifting (not swapping) is what makes it stable.' }
         ] },
-        { file: 'js/store.js', fn: 'topSellers', about: 'Ranks a tally and keeps the first k that are active and have sold.', steps: [
+        { file: 'js/backend/m01-catalogue-best-sellers.js', fn: 'topSellers', about: 'Ranks a tally and keeps the first k that are active and have sold.', steps: [
             { at: 'var ranked = selectionSortDesc(tally, salesRank);', text: 'Sort the rows by the rank key.' },
             { at: 'if (ranked[i].units > 0 && ranked[i].product.active)', text: 'Leave out disabled products and products nobody has bought.' }
         ] },
-        { file: 'js/shop-catalog.js', fn: 'renderBestSellers', about: 'Draws the strip.', steps: [
+        { file: 'js/frontend/shop/catalog.js', fn: 'renderBestSellers', about: 'Draws the strip.', steps: [
             { at: 'var top = bestSellers(3)', text: 'Ask for the top three.' },
             { at: 'grid.innerHTML = renderEach(rows', text: 'Render each one as a product card with the badge.' }
         ] }
@@ -88,7 +88,7 @@ module.exports = [
 {
     id: 'm02', no: 2, part: 1, title: 'Category Navigation', structure: 'N-ary tree · Stack',
     screens: 'Catalogue — the branch chips (All, Flower Bouquets, Other Bouquets, Gift Cakes) and their line chips',
-    files: 'js/structures.js (treeAdd, treeFromOutline, treeFind, treeLeaves, stack) · js/data.js (CATEGORY_OUTLINE) · js/shop-catalog.js',
+    files: 'js/dsa/n-ary-tree.js (treeAdd, treeFromOutline, treeFind, treeLeaves) · js/dsa/stack.js (stackPush, stackPop) · js/data/catalog.js (CATEGORY_OUTLINE) · js/frontend/shop/catalog.js',
     data: 'categoryTree — 14 nodes in one array { label, slug, parent, children, depth }; CATEGORY_OUTLINE',
     summary: ['N-ary tree · depth-first search with a stack', 'O(n)', 'O(n)'],
     business: [
@@ -96,7 +96,7 @@ module.exports = [
         'Picking a branch such as "Flower Bouquets" must show every line under it, and picking a line such as "Rose" must show only that line — without the page hard-coding which lines belong where.'
     ],
     inputs: [
-        ['Stored: CATEGORY_OUTLINE', 'The three branches and their lines, from the order sheet (js/data.js).'],
+        ['Stored: CATEGORY_OUTLINE', 'The three branches and their lines, from the order sheet (js/data/catalog.js).'],
         ['Customer picks', 'A branch chip (e.g. "Gift Cakes"), then optionally a line chip (e.g. "Diaper Cake").'],
         ['Stored: products', 'Each product’s line (its leaf in the tree).']
     ],
@@ -130,29 +130,29 @@ module.exports = [
     shots: [['m02-chips', 'Branch and line chips after choosing Flower Bouquets']],
     trace: 'tree', traceTitle: 'building and searching the tree',
     walk: [
-        { file: 'js/structures.js', fn: 'treeAdd', about: 'Adds one node under a parent.', steps: [
+        { file: 'js/dsa/n-ary-tree.js', fn: 'treeAdd', about: 'Adds one node under a parent.', steps: [
             { at: 'var index = tree.nodes.length;', text: 'The new node’s index is the next free slot.' },
             { at: 'depth: parentIndex === NIL', text: 'Depth is the parent’s depth + 1 (the root is 0).' },
             { at: 'listAdd(tree.nodes[parentIndex].children, index)', text: 'Link it: the parent remembers its new child’s index.' }
         ] },
-        { file: 'js/structures.js', fn: 'treeFromOutline', about: 'Builds the whole tree from the order sheet outline.', steps: [
+        { file: 'js/dsa/n-ary-tree.js', fn: 'treeFromOutline', about: 'Builds the whole tree from the order sheet outline.', steps: [
             { at: 'var tree = treeCreate(rootLabel);', text: 'Start with a root.' },
             { at: 'var parent = treeAdd(tree, branches[i].label', text: 'Add each branch under the root…' },
             { at: 'treeAdd(tree, kids[j].label, kids[j].slug, parent)', text: '…and each line under its branch.' }
         ] },
-        { file: 'js/structures.js', fn: 'treeFind', about: 'Finds a node by slug with our stack (depth-first).', steps: [
+        { file: 'js/dsa/n-ary-tree.js', fn: 'treeFind', about: 'Finds a node by slug with our stack (depth-first).', steps: [
             { at: 'stackPush(stack, tree.root);', text: 'Start at the root.' },
             { at: 'var at = stackPop(stack), node = tree.nodes[at];', text: 'Take the most recently added node (last in, first out).' },
             { at: 'if (node.slug === slug) return at;', text: 'Found it — return its index.' },
             { at: 'for (var i = node.children.length - 1; i >= 0; i--) stackPush(stack, node.children[i]);', text: 'Otherwise push its children, last first, so the first child is visited next.' }
         ] },
-        { file: 'js/structures.js', fn: 'treeLeaves', about: 'Collects every leaf under a node.', steps: [
+        { file: 'js/dsa/n-ary-tree.js', fn: 'treeLeaves', about: 'Collects every leaf under a node.', steps: [
             { at: 'if (node.children.length === 0) listAdd(out, node.slug);', text: 'A node with no children is a leaf: keep its slug.' },
             { at: 'else for (var i = node.children.length - 1; i >= 0; i--) stackPush(stack, node.children[i]);', text: 'Otherwise descend into its children.' }
         ] },
-        { file: 'js/shop-catalog.js', fn: 'catalogRows', about: 'Applies the tree filter (then search and sort — module 3).', steps: [
+        { file: 'js/backend/m02-category-navigation.js', fn: 'productsUnder', about: 'The tree filter (search and sort follow — module 3).', steps: [
             { at: 'var leaves = slug ? treeLeaves(categoryTree, treeFind(categoryTree, slug)) : null;', text: 'The chosen chip’s leaves, or no filter.' },
-            { at: 'var inBranch = keepWhere(activeProducts(), function (p) { return leaves === null || isIn(leaves, p.line); });', text: 'Keep active products whose line is one of those leaves.' }
+            { at: 'return keepWhere(activeProducts(), function (p) { return leaves === null || isIn(leaves, p.line); });', text: 'Keep active products whose line is one of those leaves.' }
         ] }
     ]
 },
@@ -161,7 +161,7 @@ module.exports = [
 {
     id: 'm03', no: 3, part: 1, title: 'Search & Sort', structure: 'Linear search · Insertion sort',
     screens: 'Catalogue — the search box and the sort menu (Best selling, Name A–Z, Starting price, Newest)',
-    files: 'js/core.js (normaliseKey, textHas) · js/algorithms.js (linearSearch, insertionSort) · js/shop-catalog.js (catalogRows, SORTS)',
+    files: 'js/dsa/strings.js (normaliseKey, textHas) · js/dsa/searching.js (linearSearch) · js/dsa/sorting.js (insertionSort) · js/backend/m03-search-sort.js (catalogRows, SORTS)',
     data: 'products — 10 records; SORTS — the four comparisons; each product’s searchable text',
     summary: ['Linear search + naive string matching · insertion sort', 'O(n²)', 'O(n)'],
     business: [
@@ -195,32 +195,33 @@ module.exports = [
     shots: [['m03-search', 'Searching "matcha" finds the flowers by colour name']],
     trace: 'search', traceTitle: 'the search and the insertion sort',
     walk: [
-        { file: 'js/core.js', fn: 'normaliseKey', about: 'Puts text into one comparable form.', steps: [
+        { file: 'js/dsa/strings.js', fn: 'normaliseKey', about: 'Puts text into one comparable form.', steps: [
             { at: 'var s = strip(toLower(text))', text: 'Lower-case and trim.' },
             { at: "if (isSpace(c) || c === '.' || c === ',')", text: 'Spaces, dots and commas all become one space…' },
             { at: 'if (!lastSpace) out += ', text: '…and runs of them collapse to a single space.' }
         ] },
-        { file: 'js/core.js', fn: 'textHas', about: 'Does the text contain the word? Naive string matching.', steps: [
+        { file: 'js/dsa/strings.js', fn: 'textHas', about: 'Does the text contain the word? Naive string matching.', steps: [
             { at: 'for (var start = 0; start + find.length <= text.length; start++)', text: 'Try every starting position…' },
             { at: 'while (k < find.length && text.charAt(start + k) === find.charAt(k)) k++;', text: '…and match the characters one by one (a loop inside a loop).' },
             { at: 'if (k === find.length) return true;', text: 'All matched: found.' }
         ] },
-        { file: 'js/algorithms.js', fn: 'linearSearch', about: 'Keeps every record whose text has every word.', steps: [
+        { file: 'js/dsa/searching.js', fn: 'linearSearch', about: 'Keeps every record whose text has every word.', steps: [
             { at: "var words = cutText(normaliseKey(query), ' ');", text: 'Normalise the query and cut it into words.' },
             { at: 'if (wanted.length === 0) return copyArray(records);', text: 'No words: everything matches.' },
             { at: 'var haystack = normaliseKey(textOf(records[i]));', text: 'Build this record’s searchable text.' },
             { at: 'if (!textHas(haystack, wanted[w])) all = false;', text: 'A missing word rules the record out.' },
             { at: 'if (all) listAdd(out, records[i]);', text: 'Keep it.' }
         ] },
-        { file: 'js/algorithms.js', fn: 'insertionSort', about: 'The sort used everywhere in the system.', steps: [
+        { file: 'js/dsa/sorting.js', fn: 'insertionSort', about: 'The sort used everywhere in the system.', steps: [
             { at: 'var work = copyArray(list);', text: 'Sort a copy; the input is left untouched.' },
             { at: 'for (var i = 1; i < work.length; i++)', text: 'Take each item in turn, from the second on.' },
             { at: 'while (j >= 0 && compare(work[j], held) > 0)', text: 'While the item before it sorts later — "> 0", not ">= 0", so equal items never pass each other (stable)…' },
             { at: 'work[j + 1] = work[j];', text: '…slide that item one place right.' },
             { at: 'work[j + 1] = held;', text: 'Drop the held item into the gap.' }
         ] },
-        { file: 'js/shop-catalog.js', fn: 'catalogRows', about: 'Search, then sort.', steps: [
-            { at: 'var found = linearSearch(inBranch, catalogState.query, searchText);', text: 'Linear search over the products in the chosen branch.' },
+        { file: 'js/backend/m03-search-sort.js', fn: 'catalogRows', about: 'Search, then sort.', steps: [
+            { at: 'var inBranch = productsUnder(filter.line || filter.branch);', text: 'The products in the chosen branch (module 2)…' },
+            { at: 'var found = linearSearch(inBranch, filter.query, searchText);', text: '…then a linear search over them.' },
             { at: 'return insertionSort(rows, sort.compare);', text: 'Order them with the chosen comparison.' }
         ] }
     ]
@@ -230,7 +231,7 @@ module.exports = [
 {
     id: 'm04', no: 4, part: 2, title: 'Flower Customiser', structure: 'Hash table · Recursion',
     screens: 'The product sheet of a flower bouquet (Rose, Plumeria, Dahlia, Sunflower)',
-    files: 'js/core.js (fnv1a) · js/structures.js (hashPut, hashGet) · js/store.js (buildReferenceIndex, makeFlowerItem) · js/algorithms.js (sumRecursive) · js/shop-product.js',
+    files: 'js/dsa/hashing.js (fnv1a) · js/dsa/hash-table.js (hashPut, hashGet) · js/backend/m04-flower-customiser.js (buildReferenceIndex, makeFlowerItem) · js/dsa/recursion.js (sumRecursive) · js/frontend/shop/product.js',
     data: 'referenceIndex — hash table, 199 buckets, 160 keys; COLORS (20), ARRANGEMENTS, REAL_REFERENCES (14); the product’s price list',
     summary: ['Hash table (FNV-1a, chaining) · recursive sum', 'O(1) average', 'O(n)'],
     business: [
@@ -264,30 +265,30 @@ module.exports = [
     shots: [['m04-sheet', 'Rose, Layered, Matcha — a colour preview'], ['m04-real', 'Rose, Round, Red — a real photograph']],
     trace: 'hash', traceTitle: 'the photo look-up and the add-on sum',
     walk: [
-        { file: 'js/core.js', fn: 'fnv1a', about: 'Turns text into a 32-bit number (the hash).', steps: [
+        { file: 'js/dsa/hashing.js', fn: 'fnv1a', about: 'Turns text into a 32-bit number (the hash).', steps: [
             { at: 'hash = 2166136261', text: 'Start from the FNV offset basis.' },
             { at: 'hash = hash ^ s.charCodeAt(i);', text: 'Mix in each character with XOR…' },
             { at: 'hash = Math.imul(hash, 16777619) >>> 0;', text: '…then multiply by the FNV prime, kept to 32 bits.' }
         ] },
-        { file: 'js/structures.js', fn: 'hashPut', about: 'Inserts or overwrites a key.', steps: [
+        { file: 'js/dsa/hash-table.js', fn: 'hashPut', about: 'Inserts or overwrites a key.', steps: [
             { at: 'var chain = table.buckets[hashIndex(table, key)];', text: 'Hash the key to its bucket.' },
             { at: 'if (chain[i].key === key) { chain[i].value = value; return; }', text: 'Key already there: overwrite it (how real photos replace previews).' },
             { at: 'chain[chain.length] = { key: key, value: value };', text: 'Otherwise add it to the end of the chain.' }
         ] },
-        { file: 'js/structures.js', fn: 'hashGet', about: 'Looks a key up.', steps: [
+        { file: 'js/dsa/hash-table.js', fn: 'hashGet', about: 'Looks a key up.', steps: [
             { at: 'var chain = table.buckets[hashIndex(table, key)];', text: 'Go straight to the bucket.' },
             { at: 'if (chain[i].key === key) return chain[i].value;', text: 'Scan the short chain for the exact key.' }
         ] },
-        { file: 'js/store.js', fn: 'buildReferenceIndex', about: 'Fills the table with all 160 photos.', steps: [
+        { file: 'js/backend/m04-flower-customiser.js', fn: 'buildReferenceIndex', about: 'Fills the table with all 160 photos.', steps: [
             { at: 'var table = hashCreate(199);', text: '199 buckets: a prime a little above 160 keeps chains short.' },
             { at: "src: IMG_COLORS + flower + '-' + arrangement + '-' + color + '.jpg',", text: 'Every combination first gets its generated preview…' },
             { at: '{ src: IMG_PRODUCTS + ref.file, real: true });', text: '…then the 14 real photos overwrite their entries.' }
         ] },
-        { file: 'js/algorithms.js', fn: 'sumRecursive', about: 'Adds up a list recursively.', steps: [
+        { file: 'js/dsa/recursion.js', fn: 'sumRecursive', about: 'Adds up a list recursively.', steps: [
             { at: 'if (at >= items.length) return 0;', text: 'Base case: the empty rest adds nothing.' },
             { at: 'return (Number(valueOf(items[at])) || 0) + sumRecursive(items, valueOf, at + 1);', text: 'This item plus the sum of the rest.' }
         ] },
-        { file: 'js/store.js', fn: 'makeFlowerItem', about: 'Checks the choice and prices it.', steps: [
+        { file: 'js/backend/m04-flower-customiser.js', fn: 'makeFlowerItem', about: 'Checks the choice and prices it.', steps: [
             { at: "if (!isIn(countsFor(product, choice.arrangement), choice.count))", text: 'The count must be one this arrangement offers.' },
             { at: 'var unit = priceForCount(product, choice.count) + addonsTotal(addons, choice.count);', text: 'Price list + add-ons for one bouquet.' },
             { at: 'unitEstimate: unit, estimate: unit * choice.quantity,', text: 'Times the quantity.' }
@@ -299,7 +300,7 @@ module.exports = [
 {
     id: 'm05', no: 5, part: 2, title: 'Gift Customiser', structure: 'Greedy algorithm',
     screens: 'The product sheet of the five quote gifts (money, makeup, sweets & snacks, diaper cake, beer-in-can cake) and the picture bouquet',
-    files: 'js/algorithms.js (breakIntoBills, describeBills) · js/store.js (makeQuoteItem) · js/shop-product.js (billHint)',
+    files: 'js/dsa/greedy.js (breakIntoBills, describeBills) · js/backend/m05-gift-customiser.js (makeQuoteItem) · js/frontend/shop/product.js (billHint)',
     data: 'DENOMINATIONS — 1000, 500, 200, 100, 50, 20; QUOTE_TYPES; the product’s sizes',
     summary: ['Greedy change-making', 'O(n)', 'O(n)'],
     business: [
@@ -334,18 +335,18 @@ module.exports = [
     shots: [['m05-money', 'The money bouquet with the greedy bill suggestion']],
     trace: 'greedy', traceTitle: 'the fewest bills',
     walk: [
-        { file: 'js/algorithms.js', fn: 'breakIntoBills', about: 'Greedy change-making.', steps: [
+        { file: 'js/dsa/greedy.js', fn: 'breakIntoBills', about: 'Greedy change-making.', steps: [
             { at: 'var remaining = Math.floor(Number(amount) || 0);', text: 'Start with the whole amount.' },
             { at: 'for (var i = 0; i < denominations.length; i++)', text: 'Go through the notes, largest first.' },
             { at: 'var count = Math.floor(remaining / note);', text: 'Take as many of this note as fit.' },
             { at: 'remaining -= note * count;', text: 'Subtract them; move on to the next smaller note.' },
             { at: 'return { bills: bills, remainder: remaining', text: 'Return the bills, what could not be made, and the total count.' }
         ] },
-        { file: 'js/shop-product.js', fn: 'billHint', about: 'Turns the result into the hint text.', steps: [
+        { file: 'js/frontend/shop/product.js', fn: 'billHint', about: 'Turns the result into the hint text.', steps: [
             { at: 'var b = breakIntoBills(amount, DENOMINATIONS);', text: 'Run the greedy break-down.' },
             { at: "return 'Fewest bills: ' + describeBills(b)", text: 'Show the notes and the total.' }
         ] },
-        { file: 'js/store.js', fn: 'makeQuoteItem', about: 'Checks a gift and builds its cart item.', steps: [
+        { file: 'js/backend/m05-gift-customiser.js', fn: 'makeQuoteItem', about: 'Checks a gift and builds its cart item.', steps: [
             { at: 'if (!isIn(product.sizes, choice.size))', text: 'The size must be one the product offers.' },
             { at: 'if (!isWholeIn(choice.count, 1, 500))', text: 'The count must be a whole number from 1 to 500.' },
             { at: "var unit = (product.kind === 'fixed' ? product.price : 0) + addonsTotal(addons, 0);", text: 'Quote items carry only their add-ons; the picture bouquet carries its set price.' }
@@ -357,17 +358,18 @@ module.exports = [
 {
     id: 'm06', no: 6, part: 2, title: 'Cart', structure: 'Singly linked list',
     screens: 'The cart sheet (the bag button) — lines, + / − and Remove, the subtotal',
-    files: 'js/structures.js (llAppend, llRemove, llUpdate, llEntries) · js/store.js (basketAdd, basketRemove, basketSetQuantity) · js/shop-basket.js',
+    files: 'js/dsa/linked-list.js (llAppend, llRemove, llUpdate, llEntries) · js/backend/m06-cart.js (basketAdd, basketRemove, basketSetQuantity) · js/frontend/shop/cart.js',
     data: 'basket — linked list { nodes, head, tail, size }, each node { value, next, live }',
     summary: ['Singly linked list', 'O(1) append · O(n) remove', 'O(n)'],
     business: [
-        'Customers collect several items before checking out — a rose bouquet, a picture bouquet — change quantities, and remove things they no longer want, in any order.',
+        'Customers collect several items before checking out — a rose bouquet, a picture bouquet — change quantities, edit a line’s choices (a different colour, another add-on), and remove things they no longer want, in any order.',
         'The cart must keep the items in the order they were added and remove any one of them cleanly.'
     ],
-    inputs: [['Customer picks', '"Add to cart" on a product; + / − on a line; "Remove".'], ['Built by modules 4 and 5', 'The checked item: product, choices, quantity, price.']],
+    inputs: [['Customer picks', '"Add to cart" on a product; + / − on a line; "Edit" then "Save changes"; "Remove".'], ['Built by modules 4 and 5', 'The checked item: product, choices, quantity, price.']],
     steps: [
         'Append: the new item becomes a node at the tail; the old tail’s "next" points to it (O(1), thanks to the tail pointer).',
         'Change quantity: replace that node’s value with a copy carrying the new quantity and price.',
+        'Edit a line: the customiser opens filled with the line’s choices; "Save changes" builds the item again (module 4 or 5) and puts it back in the same node — the nodes are kept in an array, so reaching it by index is O(1) and the order of the cart does not change.',
         'Remove: walk from the head to find the node before it, re-point that node’s "next" past it, and mark the removed node dead — nothing else moves.',
         'Show: walk from the head along the "next" pointers.'
     ],
@@ -383,27 +385,30 @@ module.exports = [
         'The tail pointer makes adding O(1). Keeping the nodes in one array with whole-number "next" links shows the pointer mechanics plainly while still obeying the array-only rule.',
         'The cart is short, so the O(n) walk to find the node before the one removed costs nothing in practice.'
     ],
-    demo: ['Add a Rose Bouquet and a Picture Bouquet; open the cart: two lines, in that order.', 'Press + on the first line: its quantity and price update.', 'Remove the first line: the second stays exactly as it was.'],
+    demo: ['Add a Rose Bouquet and a Picture Bouquet; open the cart: two lines, in that order.', 'Press + on the first line: its quantity and price update.', 'Press Edit on the first line, choose another colour and Save changes: the line changes in place and glows for a moment.', 'Remove the first line: the second stays exactly as it was.'],
     shots: [['m06-cart', 'The cart with two lines']],
     trace: 'linkedList', traceTitle: 'the cart’s nodes and links',
     walk: [
-        { file: 'js/structures.js', fn: 'llAppend', about: 'Adds a node at the tail.', steps: [
+        { file: 'js/dsa/linked-list.js', fn: 'llAppend', about: 'Adds a node at the tail.', steps: [
             { at: 'list.nodes[index] = { value: value, next: NIL, live: true };', text: 'Make a node in the next free slot; it points nowhere yet.' },
             { at: 'if (list.head === NIL) list.head = index;', text: 'If the list was empty it becomes the head…' },
             { at: 'else list.nodes[list.tail].next = index;', text: '…otherwise the old tail points to it.' },
             { at: 'list.tail = index;', text: 'It is the new tail.' }
         ] },
-        { file: 'js/structures.js', fn: 'llRemove', about: 'Unlinks one node.', steps: [
+        { file: 'js/dsa/linked-list.js', fn: 'llRemove', about: 'Unlinks one node.', steps: [
             { at: 'if (list.head === index) {', text: 'Removing the head: the head moves to the next node.' },
             { at: 'while (prev !== NIL && list.nodes[prev].next !== index) prev = list.nodes[prev].next;', text: 'Otherwise walk to the node before it.' },
             { at: 'list.nodes[prev].next = node.next;', text: 'Skip over it.' },
             { at: 'node.live = false;', text: 'Mark it dead; nothing else moves.' }
         ] },
-        { file: 'js/structures.js', fn: 'llEntries', about: 'Walks the list in order.', steps: [
+        { file: 'js/dsa/linked-list.js', fn: 'llEntries', about: 'Walks the list in order.', steps: [
             { at: 'var out = [], cursor = list.head', text: 'Start at the head.' },
             { at: 'cursor = node.next;', text: 'Follow each "next" pointer until NIL.' }
         ] },
-        { file: 'js/store.js', fn: 'basketSetQuantity', about: 'Changes a line’s quantity.', steps: [
+        { file: 'js/backend/m06-cart.js', fn: 'basketReplace', about: 'Puts an edited line back in its place.', steps: [
+            { at: 'return llUpdate(basket, index, item);', text: 'The node is reached by its index and its value replaced: O(1), nothing moves.' }
+        ] },
+        { file: 'js/backend/m06-cart.js', fn: 'basketSetQuantity', about: 'Changes a line’s quantity.', steps: [
             { at: 'return llUpdate(basket, index, copyRecord(item, { quantity: quantity, estimate: item.unitEstimate * quantity }));', text: 'Replace the node’s value with a copy carrying the new quantity and price.' }
         ] }
     ]
@@ -413,7 +418,7 @@ module.exports = [
 {
     id: 'm07', no: 7, part: 3, title: 'Checkout & Delivery', structure: 'Hash table · Validation',
     screens: 'Checkout step 2 — contact details, pickup (a date) or delivery (address, courier, date and time), and the two agreements',
-    files: 'js/store.js (buildAreaIndex, lookupArea, deliveryQuote, slotLoad, pickupPlacesLeft) · js/orders.js (validateRequest, isValidEmail, isValidPhone) · js/shop-basket.js (consentHtml) · js/shop-privacy.js',
+    files: 'js/backend/m07-checkout-delivery.js (buildAreaIndex, lookupArea, deliveryQuote, slotLoad, pickupPlacesLeft, validateRequest, isValidEmail, isValidPhone) · js/frontend/shop/cart.js (consentHtml) · js/frontend/shop/privacy.js',
     data: 'areaIndex — hash table, 53 buckets; DELIVERY_AREAS (35 cities with aliases); COURIERS; orders (bookings already taken)',
     summary: ['Hash table (city → area) · character-scan validation', 'O(1) average look-up · O(n²) form check', 'O(n)'],
     business: [
@@ -451,23 +456,23 @@ module.exports = [
     shots: [['m07-delivery', 'Delivery to Manila: courier choices with their rates'], ['m07-pickup', 'Pickup: a date only'], ['m07-consent', 'The two agreements, asked separately']],
     trace: 'areas', traceTitle: 'the delivery-area look-ups',
     walk: [
-        { file: 'js/store.js', fn: 'buildAreaIndex', about: 'Puts every city and alias in the hash table.', steps: [
+        { file: 'js/backend/m07-checkout-delivery.js', fn: 'buildAreaIndex', about: 'Puts every city and alias in the hash table.', steps: [
             { at: 'var table = hashCreate(53);', text: '53 buckets for 45 keys.' },
             { at: 'hashPut(table, normaliseKey(area.city), area);', text: 'The city’s normalised name…' },
             { at: 'hashPut(table, normaliseKey(area.aliases[k]), area);', text: '…and each alias, all pointing at the same record.' }
         ] },
-        { file: 'js/store.js', fn: 'lookupArea', about: 'Finds the area for whatever was typed.', steps: [
+        { file: 'js/backend/m07-checkout-delivery.js', fn: 'lookupArea', about: 'Finds the area for whatever was typed.', steps: [
             { at: 'var found = hashGet(areaIndex, normaliseKey(city));', text: 'Normalise and look up.' },
             { at: "var head = cutText(city, ',')[0];", text: 'Not found? Try the part before a comma ("Marilao, Bulacan").' }
         ] },
-        { file: 'js/store.js', fn: 'deliveryQuote', about: 'Works out the fee.', steps: [
+        { file: 'js/backend/m07-checkout-delivery.js', fn: 'deliveryQuote', about: 'Works out the fee.', steps: [
             { at: "return { service: 'pickup', fee: 0", text: 'Pickup: free.' },
             { at: 'var free = isIn(area.freeBarangays || [], barangayKey(f.barangay));', text: 'Shop area: free in Brgy. Lawa…' },
             { at: 'service: \'inhouse\', fee: free ? 0 : area.fee', text: '…otherwise the area’s fee.' },
             { at: 'var rate = courierRate(courier.id, area.region);', text: 'Courier area: the chosen courier’s rate for the region.' },
             { at: "status: 'manual'", text: 'No rate on file: the fee must be set by the owner.' }
         ] },
-        { file: 'js/orders.js', fn: 'validateRequest', about: 'Checks the checkout form.', steps: [
+        { file: 'js/backend/m07-checkout-delivery.js', fn: 'validateRequest', about: 'Checks the checkout form.', steps: [
             { at: "if (!isValidEmail(form.email)) fail('email'", text: 'An email is required — confirmations go there.' },
             { at: "else if (form.date < earliest) fail('date'", text: 'Not earlier than the lead time allows.' },
             { at: "fail('date', 'The shop delivers on '", text: 'Shop deliveries only Friday to Sunday.' },
